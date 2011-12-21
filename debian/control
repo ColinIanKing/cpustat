@@ -1,0 +1,16 @@
+Source: cpustat
+Section: devel
+Priority: optional
+Maintainer: Colin King <colin.king@ubuntu.com>
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>= 7)
+
+Package: cpustat
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: cpustat
+ Eventstat periodically dumps out the current CPU utilization
+ by running tasks.  The tool requires sudo to run since it 
+ needs to read from /proc/pid/stat to gather per task CPU
+ usage statistics.
+

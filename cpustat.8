@@ -1,0 +1,72 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH EVENTSTAT 1 "December 17, 2011"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+cpustat \- a tool to measure CPU utilization.
+.br
+
+.SH SYNOPSIS
+.B cpustat
+.RI [ \-r csv_file] [\-n task_count] [ delay " [count]]
+.br
+
+.SH DESCRIPTION
+cpustat is a program that dumps the CPU utilization of current
+running tasks.
+
+.SH OPTIONS
+cpustat options are as follow:
+.TP
+.B \-h
+show help
+.TP
+.B \-n task_count
+only display the first task_count number of top tasks.
+.TP
+.B \-q 
+run quietly, only really makes sense with -r option.
+.TP
+.B \-r csv_file
+output gathered data in a comma separated values file. This
+can be then imported and graphed using your favourite open
+source spread sheet.
+.TP
+.B \-t threshold
+ignore samples where the CPU usage delta per second less than the given threshold
+.SH EXAMPLES
+.LP
+Dump CPU stats every second until stopped.
+.RS 8
+sudo cpustat
+.RE
+.LP
+Dump the top 20 CPU consuming tasks every 60 seconds until stopped.
+.RS 8
+sudo cpustat \-n 20 60
+.RE
+.LP
+Dump CPU stats every 10 seconds just 5 times.
+.RS 8
+sudo cpustat 10 5
+.RE
+.SH SEE ALSO
+.BR powertop (8) 
+.SH AUTHOR
+cpustat was written by Colin King <colin.king@canonical.com>
+.PP
+This manual page was written by Colin King <colin.king@canonical.com>,
+for the Ubuntu project (but may be used by others).
