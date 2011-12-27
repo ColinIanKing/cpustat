@@ -1,3 +1,10 @@
+cpustat (0.01.02) precise; urgency=low
+
+  * Tidy up lists
+  * Add -i option
+
+ -- Colin King <colin.king@canonical.com>  Tue, 27 Dec 2011 11:43:00 +0000
+
 cpustat (0.01.01) precise; urgency=low
 
   * Init lists
