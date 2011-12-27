@@ -32,6 +32,7 @@
 #define APP_NAME	"cpustat"
 #define TABLE_SIZE	(32999)		/* Should be a prime */
 #define OPT_QUIET	(0x00000001)
+#define OPT_IGNORE_SELF	(0x00000002)
 
 typedef struct link {
 	void *data;
@@ -551,6 +552,10 @@ void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 {	
 	DIR *dir;
 	struct dirent *entry;
+	static pid_t my_pid;
+
+	if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == 0))
+		my_pid = getpid();
 
 	if ((dir = opendir("/proc")) == NULL) {
 		fprintf(stderr, "Cannot read directory /proc\n");
@@ -575,9 +580,12 @@ void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
 		fscanf(fp, "%d (%[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu %lu",
 			&pid, comm, &utime, &stime);
+		fclose(fp);
+
+		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
+			continue;
 
 		cpu_stat_add(cpu_stats, pid, comm, utime, stime);
-		fclose(fp);
 	}
 
 	closedir(dir);
@@ -591,6 +599,7 @@ void show_usage(void)
 {
 	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
 	printf("\t-h help\n");
+	printf("\t-i ignore %s in the statistics\n", APP_NAME);
 	printf("\t-n specifies number of tasks to display\n");
 	printf("\t-q run quietly, useful with option -r\n");
 	printf("\t-r specifies a comma separated values output file to dump samples into.\n");
@@ -613,13 +622,16 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "hn:qr:t:");
+		int c = getopt(argc, argv, "hin:qr:t:");
 		if (c == -1)
 			break;
 		switch (c) {
 		case 'h':
 			show_usage();
 			exit(EXIT_SUCCESS);
+		case 'i':
+			opt_flags |= OPT_IGNORE_SELF;
+			break;
 		case 'n':
 			n_lines = atoi(optarg);
 			if (n_lines < 1) {
