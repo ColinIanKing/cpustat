@@ -410,13 +410,12 @@ static void cpu_stat_add(
 	h = hash_pjw(ident);
 	cs = cpu_stats[h];
 
-	while (cs) {
+	for (cs = cpu_stats[h]; cs; cs = cs->next) {
 		if (strcmp(cs->info->ident, ident) == 0) {
 			cs->utime += utime;
 			cs->stime += stime;
 			return;
 		}
-		cs = cs->next;
 	}
 	/* Not found, it is new! */
 
@@ -467,7 +466,7 @@ static void cpu_stat_sort_freq_add(
 	cpu_stat_t **sorted,		/* CPU stat sorted list */
 	cpu_stat_t *new)		/* CPU stat to add */
 {
-	while (*sorted != NULL) {
+	while (*sorted) {
 		if ((*sorted)->delta < new->delta) {
 			new->sorted_usage_next = *(sorted);
 			break;
@@ -498,8 +497,9 @@ static void cpu_stat_diff(
 	unsigned long nr_ticks = sysconf(_SC_NPROCESSORS_CONF) * clock_ticks;
 
 	for (i=0; i<TABLE_SIZE; i++) {
-		cpu_stat_t *cs = cpu_stats_new[i];
-		while (cs) {
+		cpu_stat_t *cs;
+
+		for (cs = cpu_stats_new[i]; cs; cs = cs->next) {
 			cpu_stat_t *found =
 				cpu_stat_find(cpu_stats_old, cs);
 			if (found) {
@@ -518,7 +518,6 @@ static void cpu_stat_diff(
 					sample_add(cs, whence);
 				}
 			}
-			cs = cs->next;
 		}
 	}
 
