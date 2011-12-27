@@ -607,6 +607,9 @@ int main(int argc, char **argv)
 	bool forever = true;
 	struct timeval tv1, tv2;
 
+	list_init(&cpu_info_list);
+	list_init(&sample_list);
+
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
