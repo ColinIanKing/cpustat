@@ -657,6 +657,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
  */
 static void show_usage(void)
 {
+	printf("%s, version %s\n\n", APP_NAME, VERSION);
 	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
 	printf("\t-h help\n");
 	printf("\t-i ignore %s in the statistics\n", APP_NAME);
