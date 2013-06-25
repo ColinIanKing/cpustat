@@ -36,14 +36,14 @@
 #define OPT_IGNORE_SELF	(0x00000002)
 
 typedef struct link {
-	void *data;
-	struct link *next;
+	void *data;			/* Data in list */
+	struct link *next;		/* Next item in list */
 } link_t;
 
 typedef struct {
-	link_t	*head;
-	link_t	*tail;
-	size_t	length;
+	link_t	*head;			/* Head of list */
+	link_t	*tail;			/* Tail of list */
+	size_t	length;			/* Length of list */
 } list_t;
 
 typedef void (*list_link_free_t)(void *);
@@ -77,13 +77,13 @@ typedef struct sample_delta_list {
 	list_t		list;
 } sample_delta_list_t;
 
-static list_t cpu_info_list;			/* cache list of cpu_info */
-static list_t sample_list;			/* list of samples, sorted in sample time order */
-static char *csv_results;			/* results in comma separated values */
+static list_t cpu_info_list;		/* cache list of cpu_info */
+static list_t sample_list;		/* list of samples, sorted in sample time order */
+static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
-static unsigned long opt_threshold;		/* ignore samples with CPU usage deltas less than this */
-static unsigned int opt_flags;			/* option flags */
-static unsigned long clock_ticks;
+static unsigned long opt_threshold;	/* ignore samples with CPU usage deltas less than this */
+static unsigned int opt_flags;		/* option flags */
+static unsigned long clock_ticks;	/* number of clock ticks per second */
 
 /*
  *  timeval_sub()
@@ -160,11 +160,10 @@ static link_t *list_append(list_t *list, void *data)
 	
 	if (list->head == NULL) {
 		list->head = link;
-		list->tail = link;
 	} else {
 		list->tail->next = link;
-		list->tail = link;
 	}
+	list->tail = link;
 	list->length++;
 
 	return link;
@@ -609,7 +608,7 @@ static void cpu_stat_diff(
  *	scan /proc/cpu_stats and populate a cpu stat hash table with
  *	unique tasks
  */
-void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
+static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 {	
 	DIR *dir;
 	struct dirent *entry;
@@ -656,7 +655,7 @@ void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
  *  show_usage()
  *	show how to use
  */
-void show_usage(void)
+static void show_usage(void)
 {
 	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
 	printf("\t-h help\n");
