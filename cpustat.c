@@ -629,6 +629,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 		pid_t pid;
 		unsigned long utime;
 		unsigned long stime;
+		int n;
 
 		if (!isdigit(entry->d_name[0]))
 			continue;
@@ -638,14 +639,15 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 			continue;
 		
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		fscanf(fp, "%d (%[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu %lu",
+		n = fscanf(fp, "%d (%[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu %lu",
 			&pid, comm, &utime, &stime);
 		fclose(fp);
 
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
 			continue;
 
-		cpu_stat_add(cpu_stats, pid, comm, utime, stime);
+		if (n == 4)
+			cpu_stat_add(cpu_stats, pid, comm, utime, stime);
 	}
 
 	closedir(dir);
