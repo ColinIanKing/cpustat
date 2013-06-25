@@ -81,7 +81,7 @@ static list_t cpu_info_list;		/* cache list of cpu_info */
 static list_t sample_list;		/* list of samples, sorted in sample time order */
 static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
-static unsigned long opt_threshold;	/* ignore samples with CPU usage deltas less than this */
+static double opt_threshold;		/* ignore samples with CPU usage deltas less than this */
 static unsigned int opt_flags;		/* option flags */
 static unsigned long clock_ticks;	/* number of clock ticks per second */
 
@@ -565,7 +565,7 @@ static void cpu_stat_diff(
 				cpu_stat_find(cpu_stats_old, cs);
 			if (found) {
 				cs->delta = (cs->utime + cs->stime) - (found->utime + found->stime);
-				if (cs->delta >= opt_threshold) {
+				if (cs->delta >= (unsigned long)opt_threshold) {
 					cs->old = true;
 					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, whence);
@@ -573,7 +573,7 @@ static void cpu_stat_diff(
 				}
 			} else {
 				cs->delta = 0;
-				if (cs->delta >= opt_threshold) {
+				if (cs->delta >= (unsigned long)opt_threshold) {
 					cs->old = false;
 					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, whence);
@@ -699,9 +699,9 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 't':
-			opt_threshold = strtoull(optarg, NULL, 10);
-			if (opt_threshold < 1) {
-				fprintf(stderr, "-t threshold must be 1 or more.\n");
+			opt_threshold = atof(optarg);
+			if (opt_threshold < 0.0) {
+				fprintf(stderr, "-t threshold must be 0 or more.\n");
 				exit(EXIT_FAILURE);
 			}
 			break;
