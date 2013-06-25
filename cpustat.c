@@ -355,7 +355,7 @@ static unsigned long hash_pjw(char *str)
 
 	while (*str) {
 		h = (h << 4) + (*str);
-		if (0 != (g = h&0xf0000000)) {
+		if (0 != (g = h & 0xf0000000)) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}
