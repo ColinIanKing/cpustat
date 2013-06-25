@@ -11,6 +11,10 @@ cpustat: cpustat.o
 cpustat.8.gz: cpustat.8
 	gzip -c $< > $@
 
+dist:
+	 git archive --format=tar --prefix="cpustat-$(VERSION)/" V$(VERSION) | \
+		gzip > cpustat-$(VERSION).tar.gz
+
 clean:
 	rm -f cpustat cpustat.o cpustat.8.gz
 
