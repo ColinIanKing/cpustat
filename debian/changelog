@@ -1,3 +1,15 @@
+cpustat (0.01.03) unstable; urgency=low
+
+  * Makefile: bump version
+  * add version
+  * cpustat.c: make threshold double
+  * cpustat.c: small amount of code tidying up
+  * cpustat.c: fix stats on SIGINT and missing first stats issue
+  * cpustat.c: update copyright year
+  * cpustat.c: minor formatting fix
+
+ -- Colin King <colin.king@canonical.com>  Tue, 25 Jun 2013 18:27:02 +0100
+
 cpustat (0.01.02) precise; urgency=low
 
   * Tidy up lists
