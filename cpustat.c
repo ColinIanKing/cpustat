@@ -58,7 +58,9 @@ typedef struct {
 typedef struct cpu_stat {
 	unsigned long	utime;
 	unsigned long	stime;
-	unsigned long	delta;		/* Change in CPU ticks since last time */
+	unsigned long	delta;		/* Total Change in CPU ticks since last time */
+	unsigned long	udelta;
+	unsigned long	sdelta;
 	bool		old;		/* Existing task, not a new one */
 	cpu_info_t	*info;		/* CPU info */
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
@@ -564,7 +566,9 @@ static void cpu_stat_diff(
 			cpu_stat_t *found =
 				cpu_stat_find(cpu_stats_old, cs);
 			if (found) {
-				cs->delta = (cs->utime + cs->stime) - (found->utime + found->stime);
+				cs->udelta = cs->utime - found->utime;
+				cs->sdelta = cs->stime - found->stime;
+				cs->delta  = cs->udelta + cs->sdelta;
 				if (cs->delta >= (unsigned long)opt_threshold) {
 					cs->old = true;
 					cpu_stat_sort_freq_add(&sorted, cs);
@@ -572,7 +576,7 @@ static void cpu_stat_diff(
 					found->info->total += cs->delta;
 				}
 			} else {
-				cs->delta = 0;
+				cs->delta = cs->udelta = cs->sdelta = 0;
 				if (cs->delta >= (unsigned long)opt_threshold) {
 					cs->old = false;
 					cpu_stat_sort_freq_add(&sorted, cs);
@@ -583,17 +587,22 @@ static void cpu_stat_diff(
 	}
 
 	if (!(opt_flags & OPT_QUIET)) {
-		printf(" %%CPU   PID   Task\n");
+		printf(" %%CPU  %%USR  %%SYS   PID   Task\n");
 
 		while (sorted) {
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
-				double cpu_usage =
-					100.0 * (double)sorted->delta /
+				double cpu_u_usage = 
+					100.0 * (double)sorted->udelta /
 					(dur * (double)(nr_ticks));
-				if (cpu_usage > 0.0) {
-					printf("%5.2f %5d %-15s\n",
-						cpu_usage, sorted->info->pid, sorted->info->comm);
+				double cpu_s_usage = 
+					100.0 * (double)sorted->sdelta /
+					(dur * (double)(nr_ticks));
+				double cpu_t_usage = cpu_u_usage + cpu_s_usage;
+				if (cpu_t_usage > 0.0) {
+					printf("%5.2f %5.2f %5.2f %5d %-15s\n",
+						cpu_t_usage, cpu_u_usage, cpu_s_usage,
+						sorted->info->pid, sorted->info->comm);
 				}
 			}
 			sorted = sorted->sorted_usage_next;
