@@ -4,7 +4,7 @@ Maintainer: Colin King <colin.king@ubuntu.com>
 Source: git://kernel.ubuntu.com/cking/cpustat.git
 
 Files: *
-Copyright: 2013, Canonical Ltd
+Copyright: 2013-2014, Canonical Ltd
 
 License: GPL-2
 On Debian systems, the complete text of the GNU General Public
