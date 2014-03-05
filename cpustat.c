@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Canonical
+ * Copyright (C) 2011-2014 Canonical
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -413,9 +413,10 @@ static void cpu_info_list_free(void)
  */
 static unsigned long hash_pjw(char *str)
 {
-  	unsigned long h=0, g;
+  	unsigned long h = 0;
 
 	while (*str) {
+		unsigned long g;
 		h = (h << 4) + (*str);
 		if (0 != (g = h & 0xf0000000)) {
 			h = h ^ (g >> 24);
@@ -552,7 +553,6 @@ static void cpu_stat_diff(
 	cpu_stat_t *cpu_stats_new[])	/* new CPU stats samples */
 {
 	int i;
-	int j = 0;
 	double dur = timeval_double(duration);
 
 	cpu_stat_t *sorted = NULL;
@@ -587,8 +587,9 @@ static void cpu_stat_diff(
 	}
 
 	if (!(opt_flags & OPT_QUIET)) {
-		printf(" %%CPU  %%USR  %%SYS   PID   Task\n");
+		int j = 0;
 
+		printf(" %%CPU  %%USR  %%SYS   PID   Task\n");
 		while (sorted) {
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
