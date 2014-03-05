@@ -649,7 +649,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 			continue;
 		
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		n = fscanf(fp, "%d (%[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu %lu",
+		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %16lu %16lu",
 			&pid, comm, &utime, &stime);
 		fclose(fp);
 
