@@ -16,6 +16,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,14 +27,21 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <dirent.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #define APP_NAME	"cpustat"
 #define TABLE_SIZE	(32999)		/* Should be a prime */
 #define OPT_QUIET	(0x00000001)
 #define OPT_IGNORE_SELF	(0x00000002)
+#define	OPT_CMD_SHORT	(0x00000004)
+#define OPT_CMD_LONG	(0x00000008)
+#define OPT_CMD_COMM	(0x00000010)
+#define OPT_CMD_ALL	(OPT_CMD_SHORT | OPT_CMD_LONG | OPT_CMD_COMM)
+#define OPT_DIRNAME_STRIP (0x00000020)
 
 typedef struct link {
 	void *data;			/* Data in list */
@@ -51,7 +59,9 @@ typedef void (*list_link_free_t)(void *);
 typedef struct {
 	pid_t		pid;
 	char 		*comm;		/* Name of process/kernel task */
+	char		*cmdline;	/* Full name of process cmdline */
 	char		*ident;
+	bool		kernel_thread;	/* true if a kernel thread */
 	unsigned long	total;		/* Total number of CPU ticks */
 } cpu_info_t;
 
@@ -194,6 +204,73 @@ static void handle_sigint(int dummy)
 {
 	stop_cpustat = true;
 }
+
+/*
+ *  count_bits()
+ *	count bits set, from C Programming Language 2nd Ed
+ */
+static unsigned int count_bits(unsigned int n)
+{
+	unsigned int c;
+
+	for (c = 0; n; c++)
+		n &= n - 1;
+
+	return c;
+}
+
+/*
+ *  get_pid_cmdline
+ * 	get process's /proc/pid/cmdline
+ */
+static char *get_pid_cmdline(const pid_t pid)
+{
+	char buffer[4096];
+	char *ptr;
+	int fd;
+	ssize_t ret;
+
+	snprintf(buffer, sizeof(buffer), "/proc/%i/cmdline", pid);
+
+	if ((fd = open(buffer, O_RDONLY)) < 0)
+		return NULL;
+
+	if ((ret = read(fd, buffer, sizeof(buffer))) <= 0) {
+		close(fd);
+		return NULL;
+	}
+	close(fd);
+
+	if (ret >= (ssize_t)sizeof(buffer))
+		ret = sizeof(buffer) - 1;
+	buffer[ret] = '\0';
+
+	/*
+	 *  OPT_CMD_LONG option we get the full cmdline args
+	 */
+	if (opt_flags & OPT_CMD_LONG) {
+		for (ptr = buffer; ptr < buffer + ret - 1; ptr++) {
+			if (*ptr == '\0')
+				*ptr = ' ';
+		}
+		*ptr = '\0';
+	}
+	/*
+	 *  OPT_CMD_SHORT option we discard anything after a space
+	 */
+	if (opt_flags & OPT_CMD_SHORT) {
+		for (ptr = buffer; *ptr && (ptr < buffer + ret); ptr++) {
+			if (*ptr == ' ')
+				*ptr = '\0';
+		}
+	}
+
+	if (opt_flags & OPT_DIRNAME_STRIP)
+		return strdup(basename(buffer));
+
+	return strdup(buffer);
+}
+
 
 static void sample_delta_free(void *data)
 {
@@ -374,9 +451,17 @@ static cpu_info_t *cpu_info_find(cpu_info_t *new_info)
 
 	info->pid = new_info->pid;
 	info->comm = strdup(new_info->comm);
+	info->kernel_thread = new_info->kernel_thread;
+
+	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM))
+		info->cmdline = info->comm;
+	else
+		info->cmdline = new_info->cmdline;
+
 	info->ident = strdup(new_info->ident);
 
 	if (info->comm == NULL ||
+	    info->cmdline == NULL ||
 	    info->ident == NULL) {
 		fprintf(stderr, "Out of memory allocating a cpu stat fields\n");
 		exit(1);
@@ -489,6 +574,8 @@ static void cpu_stat_add(
 
 	info.pid = pid;
 	info.comm = comm;
+	info.cmdline = get_pid_cmdline(pid);
+	info.kernel_thread = (info.cmdline == NULL);
 	info.ident = ident;
 
 	cs_new->utime = utime;
@@ -593,17 +680,20 @@ static void cpu_stat_diff(
 		while (sorted) {
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
-				double cpu_u_usage = 
+				double cpu_u_usage =
 					100.0 * (double)sorted->udelta /
 					(dur * (double)(nr_ticks));
-				double cpu_s_usage = 
+				double cpu_s_usage =
 					100.0 * (double)sorted->sdelta /
 					(dur * (double)(nr_ticks));
 				double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 				if (cpu_t_usage > 0.0) {
-					printf("%5.2f %5.2f %5.2f %5d %-15s\n",
+					printf("%5.2f %5.2f %5.2f %5d %s%s%s\n",
 						cpu_t_usage, cpu_u_usage, cpu_s_usage,
-						sorted->info->pid, sorted->info->comm);
+						sorted->info->pid,
+						sorted->info->kernel_thread ? "[" : "",
+						sorted->info->cmdline,
+						sorted->info->kernel_thread ? "]" : "");
 				}
 			}
 			sorted = sorted->sorted_usage_next;
@@ -672,10 +762,14 @@ static void show_usage(void)
 	printf("%s, version %s\n\n", APP_NAME, VERSION);
 	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
 	printf("\t-h help\n");
+	printf("\t-c get command name from processes comm field\n");
+	printf("\t-d strip directory basename off command information\n");
 	printf("\t-i ignore %s in the statistics\n", APP_NAME);
+	printf("\t-l show long (full) command information\n");
 	printf("\t-n specifies number of tasks to display\n");
 	printf("\t-q run quietly, useful with option -r\n");
 	printf("\t-r specifies a comma separated values output file to dump samples into.\n");
+	printf("\t-s show short command information\n");
 	printf("\t-t specifies an task tick count threshold where samples less than this are ignored.\n");
 }
 
@@ -694,15 +788,24 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "hin:qr:t:");
+		int c = getopt(argc, argv, "cdhiln:qr:st:");
 		if (c == -1)
 			break;
 		switch (c) {
+		case 'c':
+			opt_flags |= OPT_CMD_COMM;
+			break;
+		case 'd':
+			opt_flags |= OPT_DIRNAME_STRIP;
+			break;
 		case 'h':
 			show_usage();
 			exit(EXIT_SUCCESS);
 		case 'i':
 			opt_flags |= OPT_IGNORE_SELF;
+			break;
+		case 'l':
+			opt_flags |= OPT_CMD_LONG;
 			break;
 		case 'n':
 			n_lines = atoi(optarg);
@@ -710,6 +813,9 @@ int main(int argc, char **argv)
 				fprintf(stderr, "-n option must be greater than 0\n");
 				exit(EXIT_FAILURE);
 			}
+			break;
+		case 's':
+			opt_flags |= OPT_CMD_SHORT;
 			break;
 		case 't':
 			opt_threshold = atof(optarg);
@@ -725,6 +831,11 @@ int main(int argc, char **argv)
 			csv_results = optarg;
 			break;
 		}
+	}
+
+	if (count_bits(opt_flags & OPT_CMD_ALL) > 1) {
+		fprintf(stderr, "Cannot have -c, -l, -s at same time.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (optind < argc) {

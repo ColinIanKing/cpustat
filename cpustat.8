@@ -21,7 +21,10 @@ cpustat \- a tool to measure CPU utilization.
 
 .SH SYNOPSIS
 .B cpustat
-.RI [ \-r csv_file] [\-n task_count] [ delay " [count]]
+[ options ]
+[ \-r csv_file]
+[ \-n task_count]
+.RI [ delay " [" count ]]
 .br
 
 .SH DESCRIPTION
@@ -31,11 +34,20 @@ running tasks.
 .SH OPTIONS
 cpustat options are as follow:
 .TP
+.B \-c
+get command information from processes comm field
+.TP
+.B \-d
+strip directory basename off command information
+.TP
 .B \-h
 show help
 .TP
 .B \-i
 ignore cpustat in the statistics
+.TP
+.B \-l
+show long (full) command information
 .TP
 .B \-n task_count
 only display the first task_count number of top tasks.
@@ -47,6 +59,9 @@ run quietly, only really makes sense with -r option.
 output gathered data in a comma separated values file. This
 can be then imported and graphed using your favourite open
 source spread sheet.
+.TP
+.B \-s
+show short command information
 .TP
 .B \-t threshold
 ignore samples where the CPU usage delta per second less than the given threshold
