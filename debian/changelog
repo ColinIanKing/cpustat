@@ -1,3 +1,17 @@
+cpustat (0.01.07) unstable; urgency=low
+
+  * Makefile: bump version
+  * debian: add source/format file
+  * debian: add watch file
+  * debian: copyright: update License field
+  * debian: control: update Standards-Version field
+  * debian: control: update description field
+  * Makefile: use new dist rules
+  * Add COPYING file
+  * Add extra cmdline information and options to select appropriate output
+
+ -- Colin King <colin.king@canonical.com>  Wed, 23 Apr 2014 18:13:00 +0100
+
 cpustat (0.01.06) unstable; urgency=low
 
   * Bump version
@@ -5,7 +19,7 @@ cpustat (0.01.06) unstable; urgency=low
   * Reduce scope of some variables
   * Update copyright year
 
- -- Colin King <colin.king@canonical.com>  Wed, 5 Mar 2013 09:33:00 +0000
+ -- Colin King <colin.king@canonical.com>  Wed, 5 Mar 2014 09:33:00 +0000
 
 cpustat (0.01.05) unstable; urgency=low
 
