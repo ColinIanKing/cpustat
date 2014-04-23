@@ -12,8 +12,11 @@ cpustat.8.gz: cpustat.8
 	gzip -c $< > $@
 
 dist:
-	 git archive --format=tar --prefix="cpustat-$(VERSION)/" V$(VERSION) | \
-		gzip > cpustat-$(VERSION).tar.gz
+	rm -rf cpustat-$(VERSION)
+	mkdir cpustat-$(VERSION)
+	cp -rp Makefile cpustat.c cpustat.8 COPYING cpustat-$(VERSION)
+	tar -zcf cpustat-$(VERSION).tar.gz cpustat-$(VERSION)
+	rm -rf cpustat-$(VERSION)
 
 clean:
 	rm -f cpustat cpustat.o cpustat.8.gz
