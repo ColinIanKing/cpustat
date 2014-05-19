@@ -835,6 +835,9 @@ int main(int argc, char **argv)
 		case 'r':
 			csv_results = optarg;
 			break;
+		default:
+			show_usage();
+			exit(EXIT_FAILURE);
 		}
 	}
 
