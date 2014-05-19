@@ -542,10 +542,10 @@ static void cpu_stat_free_contents(
  */
 static void cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
-	pid_t pid,			/* PID of task */
+	const pid_t pid,		/* PID of task */
 	char *comm,			/* Name of task */
-	unsigned long utime,
-	unsigned long stime)
+	const unsigned long utime,
+	const unsigned long stime)
 {
 	char ident[1024];
 	cpu_stat_t *cs;
