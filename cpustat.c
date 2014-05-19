@@ -853,7 +853,12 @@ int main(int argc, char **argv)
 
 	if (optind < argc) {
 		forever = false;
-		count = atoi(argv[optind++]);
+		errno = 0;
+		count = strtol(argv[optind++], NULL, 10);
+		if (errno) {
+			fprintf(stderr, "Invalid value for count\n");
+			exit(EXIT_FAILURE);
+		}
 		if (count < 1) {
 			fprintf(stderr, "Count must be > 0\n");
 			exit(EXIT_FAILURE);
