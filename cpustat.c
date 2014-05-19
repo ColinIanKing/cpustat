@@ -808,7 +808,12 @@ int main(int argc, char **argv)
 			opt_flags |= OPT_CMD_LONG;
 			break;
 		case 'n':
-			n_lines = atoi(optarg);
+			errno = 0;
+			n_lines = strtol(optarg, NULL, 10);
+			if (errno) {
+				fprintf(stderr, "Invalid value for -n option\n");
+				exit(EXIT_FAILURE);
+			}
 			if (n_lines < 1) {
 				fprintf(stderr, "-n option must be greater than 0\n");
 				exit(EXIT_FAILURE);
