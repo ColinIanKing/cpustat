@@ -1,3 +1,14 @@
+cpustat (0.01.08) unstable; urgency=low
+
+  * Makefile: bump version
+  * constify some more func params
+  * Show help and exit on invalid option
+  * constify count_bits arg
+  * Add overflow/underflow checking for count arg
+  * Add overflow/underflow checking for -n option
+
+ -- Colin King <colin.king@canonical.com>  Mon, 19 May 2014 08:16:38 +0100
+
 cpustat (0.01.07) unstable; urgency=low
 
   * Makefile: bump version
