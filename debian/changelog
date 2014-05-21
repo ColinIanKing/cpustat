@@ -1,3 +1,11 @@
+cpustat (0.01.09) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Make stats fields 1 char wider
+  * Add the -a option
+
+ -- Colin King <colin.king@canonical.com>  Wed, 21 May 2014 17:11:11 +0100
+
 cpustat (0.01.08) unstable; urgency=low
 
   * Makefile: bump version
