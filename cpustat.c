@@ -682,7 +682,7 @@ static void cpu_stat_diff(
 	if (!(opt_flags & OPT_QUIET)) {
 		int j = 0;
 
-		printf(" %%CPU  %%USR  %%SYS   PID   Task\n");
+		printf("  %%CPU   %%USR   %%SYS   PID   Task\n");
 		while (sorted) {
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
@@ -694,7 +694,7 @@ static void cpu_stat_diff(
 					(dur * (double)(nr_ticks));
 				double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 				if (cpu_t_usage > 0.0) {
-					printf("%5.2f %5.2f %5.2f %5d %s%s%s\n",
+					printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
 						cpu_t_usage, cpu_u_usage, cpu_s_usage,
 						sorted->info->pid,
 						sorted->info->kernel_thread ? "[" : "",
