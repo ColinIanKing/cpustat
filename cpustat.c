@@ -42,6 +42,7 @@
 #define OPT_CMD_COMM	(0x00000010)
 #define OPT_CMD_ALL	(OPT_CMD_SHORT | OPT_CMD_LONG | OPT_CMD_COMM)
 #define OPT_DIRNAME_STRIP (0x00000020)
+#define OPT_TICKS_ALL	(0x00000020)
 
 typedef struct link {
 	void *data;			/* Data in list */
@@ -372,9 +373,13 @@ static void samples_dump(const char *filename, struct timeval *duration)
 	int i = 0;
 	size_t n = cpu_info_list.length;
 	FILE *fp;
-	unsigned long nr_ticks = sysconf(_SC_NPROCESSORS_CONF) * clock_ticks;
+	unsigned long nr_ticks = clock_ticks;
+
 	double dur = timeval_double(duration);
 	bool dur_zero = (duration->tv_sec == 0) && (duration->tv_usec == 0);
+
+	if (opt_flags & OPT_TICKS_ALL)
+		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
 
 	if (filename == NULL)
 		return;
@@ -641,10 +646,11 @@ static void cpu_stat_diff(
 {
 	int i;
 	double dur = timeval_double(duration);
-
 	cpu_stat_t *sorted = NULL;
+	unsigned long nr_ticks = clock_ticks;
 
-	unsigned long nr_ticks = sysconf(_SC_NPROCESSORS_CONF) * clock_ticks;
+	if (opt_flags & OPT_TICKS_ALL)
+		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
 
 	for (i=0; i<TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
@@ -762,6 +768,7 @@ static void show_usage(void)
 	printf("%s, version %s\n\n", APP_NAME, VERSION);
 	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
 	printf("\t-h help\n");
+	printf("\t-a calculate CPU utilisation based on all the CPU ticks rather than per CPU tick.\n");
 	printf("\t-c get command name from processes comm field\n");
 	printf("\t-d strip directory basename off command information\n");
 	printf("\t-i ignore %s in the statistics\n", APP_NAME);
@@ -788,10 +795,13 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "cdhiln:qr:st:");
+		int c = getopt(argc, argv, "acdhiln:qr:st:");
 		if (c == -1)
 			break;
 		switch (c) {
+		case 'a':
+			opt_flags |= OPT_TICKS_ALL;
+			break;
 		case 'c':
 			opt_flags |= OPT_CMD_COMM;
 			break;

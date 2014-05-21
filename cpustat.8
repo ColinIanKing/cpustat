@@ -22,8 +22,6 @@ cpustat \- a tool to measure CPU utilization.
 .SH SYNOPSIS
 .B cpustat
 [ options ]
-[ \-r csv_file]
-[ \-n task_count]
 .RI [ delay " [" count ]]
 .br
 
@@ -33,6 +31,12 @@ running tasks.
 
 .SH OPTIONS
 cpustat options are as follow:
+.TP
+.B \-a
+calculate CPU utilisation based on all CPUs. For example, if a process
+is using 100% of 1 CPU and the system has 4 CPUs, then the utilisation
+will show as 25%.  The default is to show utilisation on a per CPU
+basis.
 .TP
 .B \-c
 get command information from processes comm field
