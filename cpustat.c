@@ -777,7 +777,7 @@ static void show_usage(void)
 	printf("\t-q run quietly, useful with option -r\n");
 	printf("\t-r specifies a comma separated values output file to dump samples into.\n");
 	printf("\t-s show short command information\n");
-	printf("\t-t specifies an task tick count threshold where samples less than this are ignored.\n");
+	printf("\t-t specifies a task tick count threshold where samples less than this are ignored.\n");
 }
 
 int main(int argc, char **argv)
