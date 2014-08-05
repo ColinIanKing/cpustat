@@ -1,12 +1,12 @@
 VERSION=0.01.09
 
-CFLAGS += -Wall -DVERSION='"$(VERSION)"'
+CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"'
 
 BINDIR=/usr/bin
 MANDIR=/usr/share/man/man8
 
 cpustat: cpustat.o
-	$(CC) $< -lm -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS)  $< -lm -o $@ $(LDFLAGS)
 
 cpustat.8.gz: cpustat.8
 	gzip -c $< > $@
