@@ -39,19 +39,19 @@ will show as 25%.  The default is to show utilisation on a per CPU
 basis.
 .TP
 .B \-c
-get command information from processes comm field
+get command information from processes comm field.
 .TP
 .B \-d
-strip directory basename off command information
+strip directory basename off command information.
 .TP
 .B \-h
-show help
+show help.
 .TP
 .B \-i
-ignore cpustat in the statistics
+ignore cpustat in the statistics.
 .TP
 .B \-l
-show long (full) command information
+show long (full) command information.
 .TP
 .B \-n task_count
 only display the first task_count number of top tasks.
@@ -65,10 +65,13 @@ can be then imported and graphed using your favourite open
 source spread sheet.
 .TP
 .B \-s
-show short command information
+show short command information.
 .TP
 .B \-t threshold
-ignore samples where the CPU usage delta per second less than the given threshold
+ignore samples where the CPU usage delta per second less than the given threshold.
+.TP
+.B \-T
+calculate total CPU utilisation.
 .SH EXAMPLES
 .LP
 Dump CPU stats every second until stopped.
