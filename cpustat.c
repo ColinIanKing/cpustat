@@ -44,6 +44,7 @@
 #define OPT_DIRNAME_STRIP (0x00000020)
 #define OPT_TICKS_ALL	(0x00000040)
 #define OPT_TOTAL	(0x00000080)
+#define OPT_MATCH_PID	(0x00000100)
 
 typedef struct link {
 	void *data;			/* Data in list */
@@ -98,6 +99,7 @@ static volatile bool stop_cpustat = false;	/* set by sighandler */
 static double opt_threshold;		/* ignore samples with CPU usage deltas less than this */
 static unsigned int opt_flags;		/* option flags */
 static unsigned long clock_ticks;	/* number of clock ticks per second */
+static pid_t opt_pid = -1;		/* PID to match against, -p option */
 
 /*
  *  timeval_sub()
@@ -761,6 +763,8 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
 			continue;
+		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != pid))
+			continue;
 
 		if (n == 4)
 			cpu_stat_add(cpu_stats, pid, comm, utime, stime);
@@ -784,6 +788,7 @@ static void show_usage(void)
 		" -i ignore " APP_NAME " in the statistics\n"
 		" -l show long (full) command information\n"
 		" -n specifies number of tasks to display\n"
+		" -p just show utilisation for a specified PID\n"
 		" -q run quietly, useful with option -r\n"
 		" -r specifies a comma separated values output file to dump samples into\n"
 		" -s show short command information\n"
@@ -806,7 +811,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdhiln:qr:st:T");
+		int c = getopt(argc, argv, "acdhiln:qr:st:Tp:");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -839,6 +844,15 @@ int main(int argc, char **argv)
 				fprintf(stderr, "-n option must be greater than 0\n");
 				exit(EXIT_FAILURE);
 			}
+			break;
+		case 'p':
+			errno = 0;
+			opt_pid = strtol(optarg, NULL, 10);
+			if (errno) {
+				fprintf(stderr, "Invalid value for -o option\n");
+				exit(EXIT_FAILURE);
+			}
+			opt_flags |= OPT_MATCH_PID;
 			break;
 		case 's':
 			opt_flags |= OPT_CMD_SHORT;
