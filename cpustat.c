@@ -203,6 +203,8 @@ static void list_free(list_t *list, list_link_free_t freefunc)
  */
 static void handle_sigint(int dummy)
 {
+	(void)dummy;
+
 	stop_cpustat = true;
 }
 
@@ -341,7 +343,7 @@ static void sample_add(cpu_stat_t *cpu_stat, struct timeval *whence)
  *  sample_find()
  *	scan through a sample_delta_list for cpu info, return NULL if not found
  */
-static sample_delta_item_t inline *sample_find(sample_delta_list_t *sdl, cpu_info_t *info)
+static inline sample_delta_item_t *sample_find(sample_delta_list_t *sdl, cpu_info_t *info)
 {
 	link_t *link;
 
@@ -370,8 +372,7 @@ static void samples_dump(const char *filename, struct timeval *duration)
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
 	link_t	*link;
-	int i = 0;
-	size_t n = cpu_info_list.length;
+	size_t i = 0, n = cpu_info_list.length;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
 
@@ -404,12 +405,12 @@ static void samples_dump(const char *filename, struct timeval *duration)
 	qsort(sorted_cpu_infos, n, sizeof(cpu_info_t *), info_compare_total);
 
 	fprintf(fp, "Task:");
-	for (i=0; i<n; i++)
+	for (i = 0; i < n; i++)
 		fprintf(fp, ",%s (%d)", sorted_cpu_infos[i]->comm,
 			sorted_cpu_infos[i]->pid);
 	fprintf(fp, "\n");
 
-	for (i=0; i<n; i++)
+	for (i = 0; i < n; i++)
 		fprintf(fp, ",%lu", sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
 
@@ -418,7 +419,7 @@ static void samples_dump(const char *filename, struct timeval *duration)
 		fprintf(fp, "%f", timeval_double(&sdl->whence));
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
-		for (i=0; i<n; i++) {
+		for (i = 0; i < n; i++) {
 			sample_delta_item_t *sdi = sample_find(sdl, sorted_cpu_infos[i]);
 			if (sdi)
 				fprintf(fp,",%f",
