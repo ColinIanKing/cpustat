@@ -58,20 +58,20 @@ typedef struct {
 typedef void (*list_link_free_t)(void *);
 
 typedef struct {
-	pid_t		pid;
+	pid_t		pid;		/* Process ID */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
-	char		*ident;
+	char		*ident;		/* Pid + comm identifier */
 	bool		kernel_thread;	/* true if a kernel thread */
 	unsigned long	total;		/* Total number of CPU ticks */
 } cpu_info_t;
 
 typedef struct cpu_stat {
-	unsigned long	utime;
-	unsigned long	stime;
+	unsigned long	utime;		/* User time */
+	unsigned long	stime;		/* System time */
 	unsigned long	delta;		/* Total Change in CPU ticks since last time */
-	unsigned long	udelta;
-	unsigned long	sdelta;
+	unsigned long	udelta;		/* Change in user time */
+	unsigned long	sdelta;		/* Change in system time */
 	bool		old;		/* Existing task, not a new one */
 	cpu_info_t	*info;		/* CPU info */
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
