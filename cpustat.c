@@ -42,7 +42,8 @@
 #define OPT_CMD_COMM	(0x00000010)
 #define OPT_CMD_ALL	(OPT_CMD_SHORT | OPT_CMD_LONG | OPT_CMD_COMM)
 #define OPT_DIRNAME_STRIP (0x00000020)
-#define OPT_TICKS_ALL	(0x00000020)
+#define OPT_TICKS_ALL	(0x00000040)
+#define OPT_TOTAL	(0x00000080)
 
 typedef struct link {
 	void *data;			/* Data in list */
@@ -682,18 +683,23 @@ static void cpu_stat_diff(
 
 	if (!(opt_flags & OPT_QUIET)) {
 		int j = 0;
+		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
 		printf("  %%CPU   %%USR   %%SYS   PID   Task\n");
 		while (sorted) {
+			double cpu_u_usage =
+				100.0 * (double)sorted->udelta /
+				(dur * (double)(nr_ticks));
+			double cpu_s_usage =
+				100.0 * (double)sorted->sdelta /
+				(dur * (double)(nr_ticks));
+			double cpu_t_usage = cpu_u_usage + cpu_s_usage;
+
+			cpu_u_total += cpu_u_usage;
+			cpu_s_total += cpu_s_usage;
+
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
-				double cpu_u_usage =
-					100.0 * (double)sorted->udelta /
-					(dur * (double)(nr_ticks));
-				double cpu_s_usage =
-					100.0 * (double)sorted->sdelta /
-					(dur * (double)(nr_ticks));
-				double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 				if (cpu_t_usage > 0.0) {
 					printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
 						cpu_t_usage, cpu_u_usage, cpu_s_usage,
@@ -705,6 +711,9 @@ static void cpu_stat_diff(
 			}
 			sorted = sorted->sorted_usage_next;
 		}
+		if (opt_flags & OPT_TOTAL)
+			printf("%6.2f %6.2f %6.2f Total\n",
+				cpu_u_total + cpu_s_total, cpu_u_total, cpu_s_total);
 		printf("\n");
 	}
 }
@@ -766,19 +775,20 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
  */
 static void show_usage(void)
 {
-	printf("%s, version %s\n\n", APP_NAME, VERSION);
-	printf("Usage: %s [-q] [-r csv_file] [-n task_count] [duration] [count]\n", APP_NAME);
-	printf("\t-h help\n");
-	printf("\t-a calculate CPU utilisation based on all the CPU ticks rather than per CPU tick.\n");
-	printf("\t-c get command name from processes comm field\n");
-	printf("\t-d strip directory basename off command information\n");
-	printf("\t-i ignore %s in the statistics\n", APP_NAME);
-	printf("\t-l show long (full) command information\n");
-	printf("\t-n specifies number of tasks to display\n");
-	printf("\t-q run quietly, useful with option -r\n");
-	printf("\t-r specifies a comma separated values output file to dump samples into.\n");
-	printf("\t-s show short command information\n");
-	printf("\t-t specifies a task tick count threshold where samples less than this are ignored.\n");
+	printf(APP_NAME ", version " VERSION "\n\n"
+		"Usage: " APP_NAME " [optionns] [duration] [count]\n"
+		" -h help\n"
+		" -a calculate CPU utilisation based on all the CPU ticks rather than per CPU tick\n"
+		" -c get command name from processes comm field\n"
+		" -d strip directory basename off command information\n"
+		" -i ignore " APP_NAME " in the statistics\n"
+		" -l show long (full) command information\n"
+		" -n specifies number of tasks to display\n"
+		" -q run quietly, useful with option -r\n"
+		" -r specifies a comma separated values output file to dump samples into\n"
+		" -s show short command information\n"
+		" -t specifies a task tick count threshold where samples less than this are ignored\n"
+		" -T show total CPU utilisation statistics\n");
 }
 
 int main(int argc, char **argv)
@@ -796,7 +806,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdhiln:qr:st:");
+		int c = getopt(argc, argv, "acdhiln:qr:st:T");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -839,6 +849,9 @@ int main(int argc, char **argv)
 				fprintf(stderr, "-t threshold must be 0 or more.\n");
 				exit(EXIT_FAILURE);
 			}
+			break;
+		case 'T':
+			opt_flags |= OPT_TOTAL;
 			break;
 		case 'q':
 			opt_flags |= OPT_QUIET;
