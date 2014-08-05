@@ -1,3 +1,16 @@
+cpustat (0.01.10) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Add -p option
+  * Add -T option to man page
+  * Add -T total utilisation option
+  * Add some more comments
+  * Fix -Wall warnings
+  * Add in flags to enable debian build flags
+  * Fix spelling mistake
+
+ -- Colin King <colin.king@canonical.com>  Wed, 6 Aug 2014 00:29:12 +0100
+
 cpustat (0.01.09) unstable; urgency=medium
 
   * Makefile: bump version
