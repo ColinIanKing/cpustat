@@ -1,3 +1,19 @@
+cpustat (0.01.11-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Debian control: update standards version
+  * Use inttypes for count and n_lines
+  * Improve signal handling
+  * Add in some whitespace for formatting
+  * Improve error handling
+  * Use suseconds_t for nsec conversions
+  * Make total uint64_t
+  * Add some more func comments
+  * Ignore returns from close, fclose, etc
+  * Use int64 types for stats
+
+ -- Colin King <colin.king@canonical.com>  Fri, 19 Dec 2014 21:34:00 +0000
+
 cpustat (0.01.10) unstable; urgency=medium
 
   * Makefile: bump version
