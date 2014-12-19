@@ -740,7 +740,7 @@ static void cpu_stat_sort_freq_add(
  */
 static void cpu_stat_diff(
 	struct timeval *duration,	/* time between each sample */
-	const int n_lines,		/* number of lines to output */
+	const int32_t n_lines,		/* number of lines to output */
 	struct timeval *whence,		/* nth sample */
 	cpu_stat_t *cpu_stats_old[],	/* old CPU stats samples */
 	cpu_stat_t *cpu_stats_new[])	/* new CPU stats samples */
@@ -781,7 +781,7 @@ static void cpu_stat_diff(
 	}
 
 	if (!(opt_flags & OPT_QUIET)) {
-		int j = 0;
+		int32_t j = 0;
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
 		printf("  %%CPU   %%USR   %%SYS   PID   Task\n");
@@ -898,7 +898,9 @@ int main(int argc, char **argv)
 {
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **tmp;
 	double duration_secs = 1.0;
-	int i, count = 1, n_lines = -1;
+	int i;
+	int64_t count = 1;
+	int32_t n_lines = -1;
 	bool forever = true;
 	struct timeval tv1, tv2, duration, whence;
 	struct sigaction new_action;
@@ -933,7 +935,7 @@ int main(int argc, char **argv)
 			break;
 		case 'n':
 			errno = 0;
-			n_lines = strtol(optarg, NULL, 10);
+			n_lines = (int32_t)strtol(optarg, NULL, 10);
 			if (errno) {
 				fprintf(stderr, "Invalid value for -n option\n");
 				exit(EXIT_FAILURE);
@@ -993,13 +995,13 @@ int main(int argc, char **argv)
 	if (optind < argc) {
 		forever = false;
 		errno = 0;
-		count = strtol(argv[optind++], NULL, 10);
+		count = (int64_t)strtoll(argv[optind++], NULL, 10);
 		if (errno) {
 			fprintf(stderr, "Invalid value for count\n");
 			exit(EXIT_FAILURE);
 		}
 		if (count < 1) {
-			fprintf(stderr, "Count must be > 0\n");
+			fprintf(stderr, "Count must be greater than 0\n");
 			exit(EXIT_FAILURE);
 		}
 	}
