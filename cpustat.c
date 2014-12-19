@@ -563,7 +563,7 @@ static void cpu_stat_free_contents(
 {
 	int i;
 
-	for (i=0; i<TABLE_SIZE; i++) {
+	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs = cpu_stats[i];
 
 		while (cs) {
@@ -688,7 +688,7 @@ static void cpu_stat_diff(
 	if (opt_flags & OPT_TICKS_ALL)
 		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
 
-	for (i=0; i<TABLE_SIZE; i++) {
+	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
 
 		for (cs = cpu_stats_new[i]; cs; cs = cs->next) {
