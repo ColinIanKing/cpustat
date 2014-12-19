@@ -48,11 +48,13 @@
 #define OPT_TOTAL	(0x00000080)
 #define OPT_MATCH_PID	(0x00000100)
 
+/* Generic linked list */
 typedef struct link {
 	void *data;			/* Data in list */
 	struct link *next;		/* Next item in list */
 } link_t;
 
+/* Generic list header */
 typedef struct {
 	link_t	*head;			/* Head of list */
 	link_t	*tail;			/* Tail of list */
@@ -61,6 +63,7 @@ typedef struct {
 
 typedef void (*list_link_free_t)(void *);
 
+/* per process cpu information */
 typedef struct {
 	pid_t		pid;		/* Process ID */
 	char 		*comm;		/* Name of process/kernel task */
@@ -70,6 +73,7 @@ typedef struct {
 	unsigned long	total;		/* Total number of CPU ticks */
 } cpu_info_t;
 
+/* CPU utilisation stats */
 typedef struct cpu_stat {
 	uint64_t	utime;		/* User time */
 	uint64_t	stime;		/* System time */
@@ -159,6 +163,10 @@ static inline double timeval_double(const struct timeval *tv)
 	return (double)tv->tv_sec + ((double)tv->tv_usec / 1000000.0);
 }
 
+/*
+ *  list_init()
+ *	initialise list
+ */
 static inline void list_init(list_t *list)
 {
 	list->head = NULL;
@@ -166,6 +174,10 @@ static inline void list_init(list_t *list)
 	list->length = 0;
 }
 
+/*
+ *  list_append()
+ *	add new data to end of the list
+ */
 static link_t *list_append(list_t *list, void *data)
 {
 	link_t *link;
@@ -187,6 +199,10 @@ static link_t *list_append(list_t *list, void *data)
 	return link;
 }
 
+/* 
+ *  list_free()
+ *	free list and items in list using freefunc callback
+ */
 static void list_free(list_t *list, list_link_free_t freefunc)
 {
 	link_t	*link, *next;
@@ -279,7 +295,10 @@ static char *get_pid_cmdline(const pid_t pid)
 	return strdup(buffer);
 }
 
-
+/*
+ *  sample_delta_free()
+ *	free sample delta item
+ */
 static void sample_delta_free(void *data)
 {
 	sample_delta_list_t *sdl = (sample_delta_list_t*)data;
@@ -372,6 +391,10 @@ static int info_compare_total(const void *item1, const void *item2)
 	return (*info2)->total - (*info1)->total;
 }
 
+/*
+ *  samples_dump()
+ *	dump out samples to file
+ */
 static void samples_dump(const char *filename, struct timeval *duration)
 {
 	sample_delta_list_t	*sdl;
@@ -485,6 +508,10 @@ static cpu_info_t *cpu_info_find(cpu_info_t *new_info)
 	return info;
 }
 
+/*
+ *  cpu_info_free()
+ *	free cpu_info and it's elements
+ */
 static void cpu_info_free(void *data)
 {
 	cpu_info_t *info = (cpu_info_t*)data;
