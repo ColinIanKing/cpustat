@@ -244,10 +244,10 @@ static char *get_pid_cmdline(const pid_t pid)
 		return NULL;
 
 	if ((ret = read(fd, buffer, sizeof(buffer))) <= 0) {
-		close(fd);
+		(void)close(fd);
 		return NULL;
 	}
-	close(fd);
+	(void)close(fd);
 
 	if (ret >= (ssize_t)sizeof(buffer))
 		ret = sizeof(buffer) - 1;
@@ -436,7 +436,7 @@ static void samples_dump(const char *filename, struct timeval *duration)
 	}
 
 	free(sorted_cpu_infos);
-	fclose(fp);
+	(void)fclose(fp);
 }
 
 /*
@@ -762,7 +762,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u "
 				"%20" SCNu64 "%20" SCNu64,
 			&pid, comm, &utime, &stime);
-		fclose(fp);
+		(void)fclose(fp);
 
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
 			continue;
@@ -773,7 +773,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 			cpu_stat_add(cpu_stats, pid, comm, utime, stime);
 	}
 
-	closedir(dir);
+	(void)closedir(dir);
 }
 
 /*
