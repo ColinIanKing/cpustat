@@ -70,7 +70,7 @@ typedef struct {
 	char		*cmdline;	/* Full name of process cmdline */
 	char		*ident;		/* Pid + comm identifier */
 	bool		kernel_thread;	/* true if a kernel thread */
-	unsigned long	total;		/* Total number of CPU ticks */
+	uint64_t	total;		/* Total number of CPU ticks */
 } cpu_info_t;
 
 /* CPU utilisation stats */
@@ -388,7 +388,10 @@ static int info_compare_total(const void *item1, const void *item2)
 	cpu_info_t **info1 = (cpu_info_t **)item1;
 	cpu_info_t **info2 = (cpu_info_t **)item2;
 
-	return (*info2)->total - (*info1)->total;
+	if ((*info2)->total == (*info1)->total)
+		return 0;
+
+	return ((*info2)->total > (*info1)->total) ? 1 : -1;
 }
 
 /*
@@ -439,7 +442,7 @@ static void samples_dump(const char *filename, struct timeval *duration)
 	fprintf(fp, "\n");
 
 	for (i = 0; i < n; i++)
-		fprintf(fp, ",%lu", sorted_cpu_infos[i]->total);
+		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
 
 	for (link = sample_list.head; link; link = link->next) {
