@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
@@ -69,11 +71,11 @@ typedef struct {
 } cpu_info_t;
 
 typedef struct cpu_stat {
-	unsigned long	utime;		/* User time */
-	unsigned long	stime;		/* System time */
-	unsigned long	delta;		/* Total Change in CPU ticks since last time */
-	unsigned long	udelta;		/* Change in user time */
-	unsigned long	sdelta;		/* Change in system time */
+	uint64_t	utime;		/* User time */
+	uint64_t	stime;		/* System time */
+	int64_t		delta;		/* Total Change in CPU ticks since last time */
+	int64_t		udelta;		/* Change in user time */
+	int64_t		sdelta;		/* Change in system time */
 	bool		old;		/* Existing task, not a new one */
 	cpu_info_t	*info;		/* CPU info */
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
@@ -553,8 +555,8 @@ static void cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
 	const pid_t pid,		/* PID of task */
 	char *comm,			/* Name of task */
-	const unsigned long utime,
-	const unsigned long stime)
+	const uint64_t utime,
+	const uint64_t stime)
 {
 	char ident[1024];
 	cpu_stat_t *cs;
@@ -576,7 +578,7 @@ static void cpu_stat_add(
 	}
 	/* Not found, it is new! */
 
-	if ((cs_new = malloc(sizeof(cpu_stat_t))) == NULL) {
+	if ((cs_new = calloc(1, sizeof(cpu_stat_t))) == NULL) {
 		fprintf(stderr, "Out of memory allocating a cpu stat\n");
 		exit(1);
 	}
@@ -590,7 +592,7 @@ static void cpu_stat_add(
 	cs_new->utime = utime;
 	cs_new->stime = stime;
 	cs_new->info = cpu_info_find(&info);
-	cs_new->next  = cpu_stats[h];
+	cs_new->next = cpu_stats[h];
 	cs_new->sorted_usage_next = NULL;
 
 	cpu_stats[h] = cs_new;
@@ -666,7 +668,7 @@ static void cpu_stat_diff(
 				cs->udelta = cs->utime - found->utime;
 				cs->sdelta = cs->stime - found->stime;
 				cs->delta  = cs->udelta + cs->sdelta;
-				if (cs->delta >= (unsigned long)opt_threshold) {
+				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = true;
 					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, whence);
@@ -674,7 +676,7 @@ static void cpu_stat_diff(
 				}
 			} else {
 				cs->delta = cs->udelta = cs->sdelta = 0;
-				if (cs->delta >= (unsigned long)opt_threshold) {
+				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = false;
 					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, whence);
@@ -745,8 +747,8 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 		FILE *fp;
 		char comm[20];
 		pid_t pid;
-		unsigned long utime;
-		unsigned long stime;
+		uint64_t utime;
+		uint64_t stime;
 		int n;
 
 		if (!isdigit(entry->d_name[0]))
@@ -757,7 +759,8 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 			continue;
 		
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %16lu %16lu",
+		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u "
+				"%20" SCNu64 "%20" SCNu64,
 			&pid, comm, &utime, &stime);
 		fclose(fp);
 
@@ -920,6 +923,11 @@ int main(int argc, char **argv)
 
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
+
+	if (cpu_stats_old == NULL || cpu_stats_new == NULL) {
+		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
+		exit(EXIT_FAILURE);
+	}
 
 	gettimeofday(&tv1, NULL);
 	get_cpustats(cpu_stats_old);
