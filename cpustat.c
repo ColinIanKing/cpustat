@@ -108,6 +108,71 @@ static unsigned long clock_ticks;	/* number of clock ticks per second */
 static pid_t opt_pid = -1;		/* PID to match against, -p option */
 
 /*
+ *  Attempt to catch a range of signals so
+ *  we can clean
+ */
+static const int signals[] = {
+	/* POSIX.1-1990 */
+#ifdef SIGHUP
+	SIGHUP,
+#endif
+#ifdef SIGINT
+	SIGINT,
+#endif
+#ifdef SIGQUIT
+	SIGQUIT,
+#endif
+#ifdef SIGILL
+	SIGILL,
+#endif
+#ifdef SIGABRT
+	SIGABRT,
+#endif
+#ifdef SIGFPE
+	SIGFPE,
+#endif
+#ifdef SIGSEGV
+	SIGSEGV,
+#endif
+#ifdef SIGTERM
+	SIGTERM,
+#endif
+#ifdef SIGUSR1
+	SIGUSR1,
+#endif
+#ifdef SIGUSR2
+	SIGUSR2,
+	/* POSIX.1-2001 */
+#endif
+#ifdef SIGBUS
+	SIGBUS,
+#endif
+#ifdef SIGXCPU
+	SIGXCPU,
+#endif
+#ifdef SIGXFSZ
+	SIGXFSZ,
+#endif
+	/* Linux various */
+#ifdef SIGIOT
+	SIGIOT,
+#endif
+#ifdef SIGSTKFLT
+	SIGSTKFLT,
+#endif
+#ifdef SIGPWR
+	SIGPWR,
+#endif
+#ifdef SIGINFO
+	SIGINFO,
+#endif
+#ifdef SIGVTALRM
+	SIGVTALRM,
+#endif
+	-1,
+};
+
+/*
  *  timeval_sub()
  *	timeval a - b
  */
@@ -219,10 +284,10 @@ static void list_free(list_t *list, list_link_free_t freefunc)
 }
 
 /*
- *  handle_sigint()
- *      catch SIGINT and flag a stop
+ *  handle_sig()
+ *      catch signal and flag a stop
  */
-static void handle_sigint(int dummy)
+static void handle_sig(int dummy)
 {
 	(void)dummy;
 
@@ -833,10 +898,10 @@ int main(int argc, char **argv)
 {
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **tmp;
 	double duration_secs = 1.0;
-	int count = 1;
-	int n_lines = -1;
+	int i, count = 1, n_lines = -1;
 	bool forever = true;
 	struct timeval tv1, tv2, duration, whence;
+	struct sigaction new_action;
 
 	list_init(&cpu_info_list);
 	list_init(&sample_list);
@@ -949,7 +1014,18 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	signal(SIGINT, &handle_sigint);
+	memset(&new_action, 0, sizeof(new_action));
+	for (i = 0; signals[i] != -1; i++) {
+		new_action.sa_handler = handle_sig;
+		sigemptyset(&new_action.sa_mask);
+		new_action.sa_flags = 0;
+
+		if (sigaction(signals[i], &new_action, NULL) < 0) {
+			fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+				errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
