@@ -959,7 +959,11 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	gettimeofday(&tv1, NULL);
+	if (gettimeofday(&tv1, NULL) < 0) {
+		fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
+			errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
 	get_cpustats(cpu_stats_old);
 
 	whence.tv_sec = 0;
@@ -969,7 +973,11 @@ int main(int argc, char **argv)
 		struct timeval tv;
 		int ret;
 
-		gettimeofday(&tv2, NULL);
+		if (gettimeofday(&tv2, NULL) < 0) {
+			fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
+				errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 
 		tv = timeval_add(&duration, &whence);
 		tv = timeval_add(&tv, &tv1);
@@ -987,7 +995,8 @@ int main(int argc, char **argv)
 				duration = timeval_sub(&tv, &tv2);
 				stop_cpustat = true;
 			} else {
-				fprintf(stderr, "Select failed: %s\n", strerror(errno));
+				fprintf(stderr, "select failed: errno=%d (%s)\n",
+					errno, strerror(errno));
 				break;
 			}
 		}
