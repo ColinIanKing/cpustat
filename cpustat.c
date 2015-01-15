@@ -95,7 +95,7 @@ typedef struct sample_delta_item {
 
 /* list of sample_delta_items */
 typedef struct sample_delta_list {
-	struct timeval	whence;		/* when the sample was taken */
+	double		whence;		/* when the sample was taken */
 	list_t		list;
 } sample_delta_list_t;
 
@@ -366,7 +366,7 @@ static void samples_free(void)
  */
 static void sample_add(
 	const cpu_stat_t *const cpu_stat,
-	const struct timeval *const whence)
+	const double whence)
 {
 	link_t	*link;
 	bool	found = false;
@@ -378,8 +378,7 @@ static void sample_add(
 
 	for (link = sample_list.head; link; link = link->next) {
 		sdl = (sample_delta_list_t*)link->data;
-		if ((sdl->whence.tv_sec == whence->tv_sec) &&
-		    (sdl->whence.tv_usec == whence->tv_usec)) {
+		if (sdl->whence == whence) {
 			found = true;
 			break;
 		}
@@ -394,7 +393,7 @@ static void sample_add(
 			fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
-		sdl->whence = *whence;
+		sdl->whence = whence;
 		list_append(&sample_list, sdl);
 	}
 
@@ -455,7 +454,6 @@ static void samples_dump(
 	size_t i = 0, n = cpu_info_list.length;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
-	uint64_t t = 1;
 	double last_time = 0.0;
 
 	if (opt_flags & OPT_TICKS_ALL)
@@ -495,7 +493,7 @@ static void samples_dump(
 
 	for (link = sample_list.head; link; link = link->next) {
 		sdl = (sample_delta_list_t*)link->data;
-		double whence = timeval_to_double(&sdl->whence);
+		double whence = sdl->whence;
 		double duration = whence - last_time;
 
 		fprintf(fp, "%f", whence);
@@ -730,7 +728,7 @@ static void cpu_stat_sort_freq_add(
 static void cpu_stat_diff(
 	const double duration,			/* time between each sample */
 	const int32_t n_lines,			/* number of lines to output */
-	const struct timeval *const whence,	/* nth sample */
+	const double whence,			/* nth sample */
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
 	cpu_stat_t *const cpu_stats_new[])	/* new CPU stats samples */
 {
@@ -893,7 +891,6 @@ int main(int argc, char **argv)
 	int64_t count = 1, t = 1;
 	int32_t n_lines = -1;
 	bool forever = true;
-	struct timeval tv2, whence;
 	double time_start;
 	struct sigaction new_action;
 
@@ -1024,10 +1021,8 @@ int main(int argc, char **argv)
 
 	get_cpustats(cpu_stats_old);
 
-	whence.tv_sec = 0;
-	whence.tv_usec = 0;
-
 	while (!stop_cpustat && (forever || count--)) {
+		struct timeval tv;
 		double secs, duration = duration_secs, time_now;
 		int ret;
 
@@ -1039,8 +1034,8 @@ int main(int argc, char **argv)
 		if (secs < 0.0)
 			secs = 0.0;
 		t++;
-		tv2 = double_to_timeval(secs);
-		ret = select(0, NULL, NULL, NULL, &tv2);
+		tv = double_to_timeval(secs);
+		ret = select(0, NULL, NULL, NULL, &tv);
 		if (ret < 0) {
 			if (errno == EINTR) {
 				stop_cpustat = true;
@@ -1052,10 +1047,9 @@ int main(int argc, char **argv)
 		}
 		duration = gettime_to_double() - time_start;
 		duration = floor((duration * 100.0) + 0.5) / 100.0;
-		whence = double_to_timeval(duration);
 
 		get_cpustats(cpu_stats_new);
-		cpu_stat_diff(duration, n_lines, &whence,
+		cpu_stat_diff(duration, n_lines, duration,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
 
