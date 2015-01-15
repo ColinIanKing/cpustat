@@ -1,3 +1,16 @@
+cpustat (0.01.12-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Update copyright year
+  * Replace whence timeval with double, simplifies code
+  * Add more accurate time keeping
+  * Constify more func args
+  * Wrap -h help info
+  * Remove trapping SIGSEGV and SIGBUS
+  * We don't need special privileges to read /proc/$pid/stat
+
+ -- Colin King <colin.king@canonical.com>  Thu, 15 Jan 2015 11:57:00 +0000
+
 cpustat (0.01.11-1) unstable; urgency=medium
 
   * Makefile: bump version
