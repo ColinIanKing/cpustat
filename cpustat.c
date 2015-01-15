@@ -874,7 +874,8 @@ static void show_usage(void)
 	printf(APP_NAME ", version " VERSION "\n\n"
 		"Usage: " APP_NAME " [optionns] [duration] [count]\n"
 		" -h help\n"
-		" -a calculate CPU utilisation based on all the CPU ticks rather than per CPU tick\n"
+		" -a calculate CPU utilisation based on all the CPU ticks\n"
+		"    rather than per CPU tick\n"
 		" -c get command name from processes comm field\n"
 		" -d strip directory basename off command information\n"
 		" -i ignore " APP_NAME " in the statistics\n"
@@ -882,9 +883,11 @@ static void show_usage(void)
 		" -n specifies number of tasks to display\n"
 		" -p just show utilisation for a specified PID\n"
 		" -q run quietly, useful with option -r\n"
-		" -r specifies a comma separated values output file to dump samples into\n"
+		" -r specifies a comma separated values output file to dump\n"
+		"    samples into\n"
 		" -s show short command information\n"
-		" -t specifies a task tick count threshold where samples less than this are ignored\n"
+		" -t specifies a task tick count threshold where samples less\n"
+                "    than this are ignored\n"
 		" -T show total CPU utilisation statistics\n");
 }
 
