@@ -170,7 +170,9 @@ static const int signals[] = {
  *  timeval_sub()
  *	timeval a - b
  */
-static struct timeval timeval_sub(const struct timeval *a, const struct timeval *b)
+static struct timeval timeval_sub(
+	const struct timeval *const a,
+	const struct timeval *const b)
 {
 	struct timeval ret, _b;
 
@@ -198,7 +200,9 @@ static struct timeval timeval_sub(const struct timeval *a, const struct timeval 
  *  timeval_sub()
  *	timeval a + b
  */
-static struct timeval timeval_add(const struct timeval *a, const struct timeval *b)
+static struct timeval timeval_add(
+	const struct timeval *const a,
+	const struct timeval *const b)
 {
 	struct timeval ret;
 
@@ -217,7 +221,7 @@ static struct timeval timeval_add(const struct timeval *a, const struct timeval 
  *  timeval_double
  *	timeval to a double
  */
-static inline double timeval_double(const struct timeval *tv)
+static inline double timeval_double(const struct timeval *const tv)
 {
 	return (double)tv->tv_sec + ((double)tv->tv_usec / 1000000.0);
 }
@@ -226,7 +230,7 @@ static inline double timeval_double(const struct timeval *tv)
  *  list_init()
  *	initialise list
  */
-static inline void list_init(list_t *list)
+static inline void list_init(list_t *const list)
 {
 	list->head = NULL;
 	list->tail = NULL;
@@ -237,7 +241,7 @@ static inline void list_init(list_t *list)
  *  list_append()
  *	add new data to end of the list
  */
-static link_t *list_append(list_t *list, void *data)
+static link_t *list_append(list_t *const list, void *const data)
 {
 	link_t *link;
 
@@ -262,7 +266,7 @@ static link_t *list_append(list_t *list, void *data)
  *  list_free()
  *	free list and items in list using freefunc callback
  */
-static void list_free(list_t *list, list_link_free_t freefunc)
+static void list_free(list_t *const list, list_link_free_t const freefunc)
 {
 	link_t	*link, *next;
 
@@ -358,7 +362,7 @@ static char *get_pid_cmdline(const pid_t pid)
  *  sample_delta_free()
  *	free sample delta item
  */
-static void sample_delta_free(void *data)
+static void sample_delta_free(void *const data)
 {
 	sample_delta_list_t *sdl = (sample_delta_list_t*)data;
 
@@ -379,7 +383,9 @@ static void samples_free(void)
  *  sample_add()
  *	add a cpu_stat's delta and info field to a list at time position whence
  */
-static void sample_add(cpu_stat_t *cpu_stat, struct timeval *whence)
+static void sample_add(
+	const cpu_stat_t *const cpu_stat,
+	const struct timeval *const whence)
 {
 	link_t	*link;
 	bool	found = false;
@@ -426,7 +432,9 @@ static void sample_add(cpu_stat_t *cpu_stat, struct timeval *whence)
  *  sample_find()
  *	scan through a sample_delta_list for cpu info, return NULL if not found
  */
-static inline sample_delta_item_t *sample_find(sample_delta_list_t *sdl, cpu_info_t *info)
+static inline sample_delta_item_t *sample_find(
+	const sample_delta_list_t *const sdl,
+	const cpu_info_t *const info)
 {
 	link_t *link;
 
@@ -442,7 +450,7 @@ static inline sample_delta_item_t *sample_find(sample_delta_list_t *sdl, cpu_inf
  * info_compare_total()
  *	used by qsort to sort array in CPU consumed ticks total order
  */
-static int info_compare_total(const void *item1, const void *item2)
+static int info_compare_total(const void *const item1, const void *const item2)
 {
 	cpu_info_t **info1 = (cpu_info_t **)item1;
 	cpu_info_t **info2 = (cpu_info_t **)item2;
@@ -457,7 +465,9 @@ static int info_compare_total(const void *item1, const void *item2)
  *  samples_dump()
  *	dump out samples to file
  */
-static void samples_dump(const char *filename, struct timeval *duration)
+static void samples_dump(
+	const char *const filename,
+	const struct timeval *const duration)
 {
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
@@ -529,7 +539,7 @@ static void samples_dump(const char *filename, struct timeval *duration)
  *	try to find existing cpu info in cache, and to the cache
  *	if it is new.
  */
-static cpu_info_t *cpu_info_find(cpu_info_t *new_info)
+static cpu_info_t *cpu_info_find(const cpu_info_t *const new_info)
 {
 	link_t *link;
 	cpu_info_t *info;
@@ -574,7 +584,7 @@ static cpu_info_t *cpu_info_find(cpu_info_t *new_info)
  *  cpu_info_free()
  *	free cpu_info and it's elements
  */
-static void cpu_info_free(void *data)
+static void cpu_info_free(void *const data)
 {
 	cpu_info_t *info = (cpu_info_t*)data;
 
@@ -596,9 +606,10 @@ static void cpu_info_list_free(void)
  *  hash_pjw()
  *	Hash a string, from Aho, Sethi, Ullman, Compiling Techniques.
  */
-static unsigned long hash_pjw(char *str)
+static unsigned long hash_pjw(char *const string)
 {
   	unsigned long h = 0;
+	char *str = string;
 
 	while (*str) {
 		unsigned long g;
@@ -643,7 +654,7 @@ static void cpu_stat_free_contents(
 static void cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
 	const pid_t pid,		/* PID of task */
-	char *comm,			/* Name of task */
+	const char *comm,		/* Name of task */
 	const uint64_t utime,
 	const uint64_t stime)
 {
@@ -673,7 +684,7 @@ static void cpu_stat_add(
 	}
 
 	info.pid = pid;
-	info.comm = comm;
+	info.comm = (char *)comm;
 	info.cmdline = get_pid_cmdline(pid);
 	info.kernel_thread = (info.cmdline == NULL);
 	info.ident = ident;
@@ -692,8 +703,8 @@ static void cpu_stat_add(
  *	find a CPU stat (needle) in a CPU stat hash table (haystack)
  */
 static cpu_stat_t *cpu_stat_find(
-	cpu_stat_t *haystack[],		/* CPU stat hash table */
-	cpu_stat_t *needle)		/* CPU stat to find */
+	cpu_stat_t *const haystack[],		/* CPU stat hash table */
+	const cpu_stat_t *const needle)		/* CPU stat to find */
 {
 	cpu_stat_t *ts;
 	char ident[1024];
@@ -714,7 +725,7 @@ static cpu_stat_t *cpu_stat_find(
  */
 static void cpu_stat_sort_freq_add(
 	cpu_stat_t **sorted,		/* CPU stat sorted list */
-	cpu_stat_t *new)		/* CPU stat to add */
+	cpu_stat_t *const new)		/* CPU stat to add */
 {
 	while (*sorted) {
 		if ((*sorted)->delta < new->delta) {
@@ -733,11 +744,11 @@ static void cpu_stat_sort_freq_add(
  *	silently die
  */
 static void cpu_stat_diff(
-	struct timeval *duration,	/* time between each sample */
-	const int32_t n_lines,		/* number of lines to output */
-	struct timeval *whence,		/* nth sample */
-	cpu_stat_t *cpu_stats_old[],	/* old CPU stats samples */
-	cpu_stat_t *cpu_stats_new[])	/* new CPU stats samples */
+	const struct timeval *const duration,	/* time between each sample */
+	const int32_t n_lines,			/* number of lines to output */
+	const struct timeval *const whence,	/* nth sample */
+	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
+	cpu_stat_t *const cpu_stats_new[])	/* new CPU stats samples */
 {
 	int i;
 	double dur = timeval_double(duration);
