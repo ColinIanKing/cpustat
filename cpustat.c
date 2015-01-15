@@ -1010,12 +1010,6 @@ int main(int argc, char **argv)
 	duration.tv_usec = (suseconds_t)(duration_secs * 1000000.0) - (duration.tv_sec * 1000000);
 	opt_threshold *= duration_secs;
 
-	if (geteuid() != 0) {
-		fprintf(stderr, "%s requires root privileges to read /proc/$pid/stat\n",
-			APP_NAME);
-		exit(EXIT_FAILURE);
-	}
-
 	memset(&new_action, 0, sizeof(new_action));
 	for (i = 0; signals[i] != -1; i++) {
 		new_action.sa_handler = handle_sig;
