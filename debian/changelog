@@ -1,3 +1,11 @@
+cpustat (0.01.13-1) unstable; urgency=medium
+
+  * Makefile: bump version again
+  * Install to /usr/sbin
+  * Fix man page date and section
+
+ -- Colin King <colin.king@canonical.com>  Thu, 15 Jan 2015 12:10:00 +0000
+
 cpustat (0.01.12-1) unstable; urgency=medium
 
   * Makefile: bump version
