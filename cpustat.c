@@ -34,6 +34,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 
 #define APP_NAME	"cpustat"
 #define TABLE_SIZE	(32999)		/* Should be a prime */
@@ -167,63 +168,43 @@ static const int signals[] = {
 };
 
 /*
- *  timeval_sub()
- *	timeval a - b
+ *  timeval_to_double
+ *	timeval to a double (in seconds)
  */
-static struct timeval timeval_sub(
-	const struct timeval *const a,
-	const struct timeval *const b)
-{
-	struct timeval ret, _b;
-
-	_b.tv_sec = b->tv_sec;
-	_b.tv_usec = b->tv_usec;
-
-	if (a->tv_usec < _b.tv_usec) {
-		suseconds_t nsec = ((_b.tv_usec - a->tv_usec) / 1000000) + 1;
-		_b.tv_sec += nsec;
-		_b.tv_usec -= (1000000 * nsec);
-	}
-	if (a->tv_usec - _b.tv_usec > 1000000) {
-		suseconds_t nsec = (a->tv_usec - _b.tv_usec) / 1000000;
-		_b.tv_sec -= nsec;
-		_b.tv_usec += (1000000 * nsec);
-	}
-
-	ret.tv_sec = a->tv_sec - _b.tv_sec;
-	ret.tv_usec = a->tv_usec - _b.tv_usec;
-
-	return ret;
-}
-
-/*
- *  timeval_sub()
- *	timeval a + b
- */
-static struct timeval timeval_add(
-	const struct timeval *const a,
-	const struct timeval *const b)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a->tv_sec + b->tv_sec;
-	ret.tv_usec = a->tv_usec + b->tv_usec;
-	if (ret.tv_usec > 1000000) {
-		int nsec = (ret.tv_usec / 1000000);
-		ret.tv_sec += nsec;
-		ret.tv_usec -= (1000000 * nsec);
-	}
-
-	return ret;
-}
-
-/*
- *  timeval_double
- *	timeval to a double
- */
-static inline double timeval_double(const struct timeval *const tv)
+static inline double timeval_to_double(const struct timeval *const tv)
 {
 	return (double)tv->tv_sec + ((double)tv->tv_usec / 1000000.0);
+}
+
+
+/*
+ *  double_to_timeval
+ *	seconds in double to timeval
+ */
+static inline struct timeval double_to_timeval(const double val)
+{
+	struct timeval tv;
+
+	tv.tv_sec = val;
+	tv.tv_usec = (val - (time_t)val) * 1000000.0;
+
+	return tv;
+}
+
+/*
+ *  gettime_to_double()
+ *	get time as a double
+ */
+static double gettime_to_double(void)
+{
+	struct timeval tv;
+
+        if (gettimeofday(&tv, NULL) < 0) {
+                fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
+                        errno, strerror(errno));
+                exit(EXIT_FAILURE);
+        }
+        return timeval_to_double(&tv);
 }
 
 /*
@@ -250,7 +231,7 @@ static link_t *list_append(list_t *const list, void *const data)
 		exit(EXIT_FAILURE);
 	}
 	link->data = data;
-	
+
 	if (list->head == NULL) {
 		list->head = link;
 	} else {
@@ -262,7 +243,7 @@ static link_t *list_append(list_t *const list, void *const data)
 	return link;
 }
 
-/* 
+/*
  *  list_free()
  *	free list and items in list using freefunc callback
  */
@@ -466,8 +447,7 @@ static int info_compare_total(const void *const item1, const void *const item2)
  *	dump out samples to file
  */
 static void samples_dump(
-	const char *const filename,
-	const struct timeval *const duration)
+	const char *const filename)		/* file to dump samples */
 {
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
@@ -475,9 +455,8 @@ static void samples_dump(
 	size_t i = 0, n = cpu_info_list.length;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
-
-	double dur = timeval_double(duration);
-	bool dur_zero = (duration->tv_sec == 0) && (duration->tv_usec == 0);
+	uint64_t t = 1;
+	double last_time = 0.0;
 
 	if (opt_flags & OPT_TICKS_ALL)
 		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
@@ -516,18 +495,23 @@ static void samples_dump(
 
 	for (link = sample_list.head; link; link = link->next) {
 		sdl = (sample_delta_list_t*)link->data;
-		fprintf(fp, "%f", timeval_double(&sdl->whence));
+		double whence = timeval_to_double(&sdl->whence);
+		double duration = whence - last_time;
+
+		fprintf(fp, "%f", whence);
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
 		for (i = 0; i < n; i++) {
 			sample_delta_item_t *sdi = sample_find(sdl, sorted_cpu_infos[i]);
 			if (sdi)
 				fprintf(fp,",%f",
-					dur_zero ? 0 : 100.0 * (double)sdi->delta / (dur * (double)nr_ticks) );
+					(duration == 0.0) ?
+					0 : 100.0 * (double)sdi->delta / (duration * (double)nr_ticks));
 			else
 				fprintf(fp,", ");
 		}
 		fprintf(fp, "\n");
+		last_time = whence;
 	}
 
 	free(sorted_cpu_infos);
@@ -744,14 +728,13 @@ static void cpu_stat_sort_freq_add(
  *	silently die
  */
 static void cpu_stat_diff(
-	const struct timeval *const duration,	/* time between each sample */
+	const double duration,			/* time between each sample */
 	const int32_t n_lines,			/* number of lines to output */
 	const struct timeval *const whence,	/* nth sample */
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
 	cpu_stat_t *const cpu_stats_new[])	/* new CPU stats samples */
 {
 	int i;
-	double dur = timeval_double(duration);
 	cpu_stat_t *sorted = NULL;
 	unsigned long nr_ticks = clock_ticks;
 
@@ -793,10 +776,10 @@ static void cpu_stat_diff(
 		while (sorted) {
 			double cpu_u_usage =
 				100.0 * (double)sorted->udelta /
-				(dur * (double)(nr_ticks));
+				(duration * (double)(nr_ticks));
 			double cpu_s_usage =
 				100.0 * (double)sorted->sdelta /
-				(dur * (double)(nr_ticks));
+				(duration * (double)(nr_ticks));
 			double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 
 			cpu_u_total += cpu_u_usage;
@@ -829,7 +812,7 @@ static void cpu_stat_diff(
  *	unique tasks
  */
 static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
-{	
+{
 	DIR *dir;
 	struct dirent *entry;
 	static pid_t my_pid;
@@ -857,7 +840,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 		snprintf(filename, sizeof(filename), "/proc/%s/stat", entry->d_name);
 		if ((fp = fopen(filename, "r")) == NULL)
 			continue;
-		
+
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
 		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u "
 				"%20" SCNu64 "%20" SCNu64,
@@ -907,10 +890,11 @@ int main(int argc, char **argv)
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **tmp;
 	double duration_secs = 1.0;
 	int i;
-	int64_t count = 1;
+	int64_t count = 1, t = 1;
 	int32_t n_lines = -1;
 	bool forever = true;
-	struct timeval tv1, tv2, duration, whence;
+	struct timeval tv2, whence;
+	double time_start;
 	struct sigaction new_action;
 
 	list_init(&cpu_info_list);
@@ -999,7 +983,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-
 	if (optind < argc) {
 		forever = false;
 		errno = 0;
@@ -1014,8 +997,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	duration.tv_sec = (time_t)duration_secs;
-	duration.tv_usec = (suseconds_t)(duration_secs * 1000000.0) - (duration.tv_sec * 1000000);
 	opt_threshold *= duration_secs;
 
 	memset(&new_action, 0, sizeof(new_action));
@@ -1039,40 +1020,29 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (gettimeofday(&tv1, NULL) < 0) {
-		fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
-			errno, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
+	time_start = gettime_to_double();
+
 	get_cpustats(cpu_stats_old);
 
 	whence.tv_sec = 0;
 	whence.tv_usec = 0;
 
 	while (!stop_cpustat && (forever || count--)) {
-		struct timeval tv;
+		double secs, duration = duration_secs, time_now;
 		int ret;
 
-		if (gettimeofday(&tv2, NULL) < 0) {
-			fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
-				errno, strerror(errno));
-			exit(EXIT_FAILURE);
-		}
+		time_now = gettime_to_double();
 
-		tv = timeval_add(&duration, &whence);
-		tv = timeval_add(&tv, &tv1);
-		tv2 = tv = timeval_sub(&tv, &tv2);
-
+		/* Timeout to wait for in the futute for this sample */
+		secs = time_start + ((double)t * duration_secs) - time_now;
 		/* Play catch-up, probably been asleep */
-		if (tv.tv_sec < 0) {
-			tv.tv_sec = 0;
-			tv.tv_usec = 0;
-			tv2 = tv;
-		}
+		if (secs < 0.0)
+			secs = 0.0;
+		t++;
+		tv2 = double_to_timeval(secs);
 		ret = select(0, NULL, NULL, NULL, &tv2);
 		if (ret < 0) {
 			if (errno == EINTR) {
-				duration = timeval_sub(&tv, &tv2);
 				stop_cpustat = true;
 			} else {
 				fprintf(stderr, "select failed: errno=%d (%s)\n",
@@ -1080,20 +1050,21 @@ int main(int argc, char **argv)
 				break;
 			}
 		}
+		duration = gettime_to_double() - time_start;
+		duration = floor((duration * 100.0) + 0.5) / 100.0;
+		whence = double_to_timeval(duration);
 
 		get_cpustats(cpu_stats_new);
-		cpu_stat_diff(&duration, n_lines, &whence,
+		cpu_stat_diff(duration, n_lines, &whence,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
 
 		tmp             = cpu_stats_old;
 		cpu_stats_old = cpu_stats_new;
 		cpu_stats_new = tmp;
-
-		whence = timeval_add(&duration, &whence);
 	}
 
-	samples_dump(csv_results, &duration);
+	samples_dump(csv_results);
 
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
