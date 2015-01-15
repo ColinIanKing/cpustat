@@ -131,9 +131,6 @@ static const int signals[] = {
 #ifdef SIGFPE
 	SIGFPE,
 #endif
-#ifdef SIGSEGV
-	SIGSEGV,
-#endif
 #ifdef SIGTERM
 	SIGTERM,
 #endif
@@ -143,9 +140,6 @@ static const int signals[] = {
 #ifdef SIGUSR2
 	SIGUSR2,
 	/* POSIX.1-2001 */
-#endif
-#ifdef SIGBUS
-	SIGBUS,
 #endif
 #ifdef SIGXCPU
 	SIGXCPU,
