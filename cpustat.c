@@ -891,7 +891,7 @@ int main(int argc, char **argv)
 	int64_t count = 1, t = 1;
 	int32_t n_lines = -1;
 	bool forever = true;
-	double time_start;
+	double time_start, time_now;
 	struct sigaction new_action;
 
 	list_init(&cpu_info_list);
@@ -1017,23 +1017,29 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	time_start = gettime_to_double();
+	time_now = time_start = gettime_to_double();
 
 	get_cpustats(cpu_stats_old);
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
-		double secs, duration = duration_secs, time_now;
+		double secs, duration = duration_secs;
 		int ret;
 
-		time_now = gettime_to_double();
+		//time_now = gettime_to_double();
 
-		/* Timeout to wait for in the futute for this sample */
+		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
 		/* Play catch-up, probably been asleep */
-		if (secs < 0.0)
-			secs = 0.0;
-		t++;
+		if (secs < 0.0) {
+			t = ceil((time_now - time_start) / duration_secs);
+			secs = time_start + ((double)t * duration_secs) - time_now;
+			/* Really, it's impossible, but just in case.. */
+			if (secs < 0.0)
+				secs = 0.0;
+		} else {
+			t++;
+		}
 		tv = double_to_timeval(secs);
 		ret = select(0, NULL, NULL, NULL, &tv);
 		if (ret < 0) {
@@ -1045,15 +1051,16 @@ int main(int argc, char **argv)
 				break;
 			}
 		}
-		duration = gettime_to_double() - time_start;
+		duration = gettime_to_double() - time_now;
 		duration = floor((duration * 100.0) + 0.5) / 100.0;
 
+		time_now = gettime_to_double();
 		get_cpustats(cpu_stats_new);
 		cpu_stat_diff(duration, n_lines, duration,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
 
-		tmp             = cpu_stats_old;
+		tmp           = cpu_stats_old;
 		cpu_stats_old = cpu_stats_new;
 		cpu_stats_new = tmp;
 	}
