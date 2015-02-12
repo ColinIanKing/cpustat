@@ -454,7 +454,7 @@ static void samples_dump(
 	size_t i = 0, n = cpu_info_list.length;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
-	double last_time = 0.0;
+	double last_time = 0.0, first_time = -1.0;
 
 	if (opt_flags & OPT_TICKS_ALL)
 		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
@@ -496,7 +496,10 @@ static void samples_dump(
 		double whence = sdl->whence;
 		double duration = whence - last_time;
 
-		fprintf(fp, "%f", whence);
+		if (first_time < 0)
+			first_time = whence;
+
+		fprintf(fp, "%f", whence - first_time);
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
 		for (i = 0; i < n; i++) {
@@ -1054,7 +1057,7 @@ int main(int argc, char **argv)
 
 		time_now = gettime_to_double();
 		get_cpustats(cpu_stats_new);
-		cpu_stat_diff(duration, n_lines, duration,
+		cpu_stat_diff(duration, n_lines, time_now,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
 
