@@ -78,9 +78,11 @@ typedef struct {
 typedef struct cpu_stat {
 	uint64_t	utime;		/* User time */
 	uint64_t	stime;		/* System time */
+	double		time;		/* Wall clock time */
 	int64_t		delta;		/* Total Change in CPU ticks since last time */
 	int64_t		udelta;		/* Change in user time */
 	int64_t		sdelta;		/* Change in system time */
+	double		time_delta;	/* Wall clock time delta */
 	bool		old;		/* Existing task, not a new one */
 	cpu_info_t	*info;		/* CPU info */
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
@@ -89,7 +91,8 @@ typedef struct cpu_stat {
 
 /* sample delta item as an element of the sample_delta_list_t */
 typedef struct sample_delta_item {
-	unsigned long	delta;		/* difference in CPU ticks between old and new */
+	int64_t		delta;		/* difference in CPU ticks between old and new */
+	double		time_delta;	/* difference in time between old and new */
 	cpu_info_t	*info;		/* CPU info this refers to */
 } sample_delta_item_t;
 
@@ -403,6 +406,7 @@ static void sample_add(
 		exit(EXIT_FAILURE);
 	}
 	sdi->delta = cpu_stat->delta;
+	sdi->time_delta = cpu_stat->time_delta;
 	sdi->info  = cpu_stat->info;
 
 	list_append(&sdl->list, sdi);
@@ -442,6 +446,15 @@ static int info_compare_total(const void *const item1, const void *const item2)
 }
 
 /*
+ *  duration_round()
+ *	round duration to nearest 1/100th second
+ */
+static inline double duration_round(const double duration)
+{
+        return floor((duration * 100.0) + 0.5) / 100.0;
+}
+
+/*
  *  samples_dump()
  *	dump out samples to file
  */
@@ -454,7 +467,7 @@ static void samples_dump(
 	size_t i = 0, n = cpu_info_list.length;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
-	double last_time = 0.0, first_time = -1.0;
+	double first_time = -1.0;
 
 	if (opt_flags & OPT_TICKS_ALL)
 		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
@@ -493,26 +506,24 @@ static void samples_dump(
 
 	for (link = sample_list.head; link; link = link->next) {
 		sdl = (sample_delta_list_t*)link->data;
-		double whence = sdl->whence;
-		double duration = whence - last_time;
 
 		if (first_time < 0)
-			first_time = whence;
+			first_time = sdl->whence;
 
-		fprintf(fp, "%f", whence - first_time);
+		fprintf(fp, "%f", duration_round(sdl->whence - first_time));
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
 		for (i = 0; i < n; i++) {
 			sample_delta_item_t *sdi = sample_find(sdl, sorted_cpu_infos[i]);
-			if (sdi)
+			if (sdi) {
+				double duration = duration_round(sdi->time_delta);
 				fprintf(fp,",%f",
-					(duration == 0.0) ?
-					0 : 100.0 * (double)sdi->delta / (duration * (double)nr_ticks));
-			else
+					(duration == 0.0) ? 0.0 : 
+					100.0 * (double)sdi->delta / (duration * (double)nr_ticks));
+			} else
 				fprintf(fp,", ");
 		}
 		fprintf(fp, "\n");
-		last_time = whence;
 	}
 
 	free(sorted_cpu_infos);
@@ -638,6 +649,7 @@ static void cpu_stat_free_contents(
  */
 static void cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
+	const double time_now,		/* time sample was taken */
 	const pid_t pid,		/* PID of task */
 	const char *comm,		/* Name of task */
 	const uint64_t utime,
@@ -677,6 +689,7 @@ static void cpu_stat_add(
 	cs_new->utime = utime;
 	cs_new->stime = stime;
 	cs_new->info = cpu_info_find(&info);
+	cs_new->time = time_now;
 	cs_new->next = cpu_stats[h];
 	cs_new->sorted_usage_next = NULL;
 
@@ -752,6 +765,7 @@ static void cpu_stat_diff(
 				cs->udelta = cs->utime - found->utime;
 				cs->sdelta = cs->stime - found->stime;
 				cs->delta  = cs->udelta + cs->sdelta;
+				cs->time_delta = cs->time - found->time;
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = true;
 					cpu_stat_sort_freq_add(&sorted, cs);
@@ -760,6 +774,7 @@ static void cpu_stat_diff(
 				}
 			} else {
 				cs->delta = cs->udelta = cs->sdelta = 0;
+				cs->time_delta = duration;
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = false;
 					cpu_stat_sort_freq_add(&sorted, cs);
@@ -812,7 +827,9 @@ static void cpu_stat_diff(
  *	scan /proc/cpu_stats and populate a cpu stat hash table with
  *	unique tasks
  */
-static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
+static void get_cpustats(
+	cpu_stat_t *cpu_stats[],
+	const double time_now)
 {
 	DIR *dir;
 	struct dirent *entry;
@@ -854,7 +871,7 @@ static void get_cpustats(cpu_stat_t *cpu_stats[])	/* hash table to populate */
 			continue;
 
 		if (n == 4)
-			cpu_stat_add(cpu_stats, pid, comm, utime, stime);
+			cpu_stat_add(cpu_stats, time_now, pid, comm, utime, stime);
 	}
 
 	(void)closedir(dir);
@@ -1022,7 +1039,7 @@ int main(int argc, char **argv)
 
 	time_now = time_start = gettime_to_double();
 
-	get_cpustats(cpu_stats_old);
+	get_cpustats(cpu_stats_old, time_now);
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
@@ -1035,9 +1052,9 @@ int main(int argc, char **argv)
 		if (secs < 0.0) {
 			t = ceil((time_now - time_start) / duration_secs);
 			secs = time_start + ((double)t * duration_secs) - time_now;
-			/* Really, it's impossible, but just in case.. */
-			if (secs < 0.0)
-				secs = 0.0;
+			/* We don't get sane stats if the duration is too small */
+			if (secs < 0.5)
+				secs += duration_secs;
 		} else {
 			t++;
 		}
@@ -1056,7 +1073,7 @@ int main(int argc, char **argv)
 		duration = floor((duration * 100.0) + 0.5) / 100.0;
 
 		time_now = gettime_to_double();
-		get_cpustats(cpu_stats_new);
+		get_cpustats(cpu_stats_new, time_now);
 		cpu_stat_diff(duration, n_lines, time_now,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
