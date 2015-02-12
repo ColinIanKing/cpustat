@@ -1026,8 +1026,6 @@ int main(int argc, char **argv)
 		double secs, duration = duration_secs;
 		int ret;
 
-		//time_now = gettime_to_double();
-
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
 		/* Play catch-up, probably been asleep */
