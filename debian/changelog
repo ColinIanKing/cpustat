@@ -1,3 +1,15 @@
+cpustat (0.01.15-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Add copyright and a few more refs to manual
+  * Minor tidyup and ensuring duration is sharp
+  * Add a timestamp -S option
+  * Handle time deltas more exactly, this is required if cpustat gets suspended
+  * Fix whence so that we get real wall clock time in whence field
+  * Remove commented out cruft
+
+ -- Colin King <colin.king@canonical.com>  Fri, 13 Feb 2015 00:18:00 +0000
+
 cpustat (0.01.14-1) unstable; urgency=medium
 
   * Makefile: bump version
