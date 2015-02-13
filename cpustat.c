@@ -1084,7 +1084,7 @@ int main(int argc, char **argv)
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
-		double secs, duration = duration_secs;
+		double secs, duration = duration_secs, right_now;
 		int ret;
 
 		/* Timeout to wait for in the future for this sample */
@@ -1110,10 +1110,9 @@ int main(int argc, char **argv)
 				break;
 			}
 		}
-		duration = gettime_to_double() - time_now;
-		duration = floor((duration * 100.0) + 0.5) / 100.0;
-
-		time_now = gettime_to_double();
+		right_now = gettime_to_double();
+		duration = duration_round(right_now - time_now);
+		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
 		cpu_stat_diff(duration, n_lines, time_now,
 			cpu_stats_old, cpu_stats_new);
