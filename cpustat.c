@@ -48,6 +48,7 @@
 #define OPT_TICKS_ALL	(0x00000040)
 #define OPT_TOTAL	(0x00000080)
 #define OPT_MATCH_PID	(0x00000100)
+#define OPT_TIMESTAMP	(0x00000200)
 
 /* Generic linked list */
 typedef struct link {
@@ -169,6 +170,22 @@ static const int signals[] = {
 #endif
 	-1,
 };
+
+
+/*
+ *  get_tm()
+ *	fetch tm, will set fields to zero if can't get
+ */
+static void get_tm(const double time_now, struct tm *tm)
+{
+	time_t now = (time_t)time_now;
+
+	if (now == ((time_t) -1)) {
+		memset(tm, 0, sizeof(struct tm));
+	} else {
+		(void)localtime_r(&now, tm);
+	}
+}
 
 /*
  *  timeval_to_double
@@ -447,11 +464,11 @@ static int info_compare_total(const void *const item1, const void *const item2)
 
 /*
  *  duration_round()
- *	round duration to nearest 1/100th second
+ *	round duration to nearest 1/20th second
  */
 static inline double duration_round(const double duration)
 {
-        return floor((duration * 100.0) + 0.5) / 100.0;
+        return floor((duration * 20.0) + 0.5) / 20.0;
 }
 
 /*
@@ -494,12 +511,14 @@ static void samples_dump(
 
 	qsort(sorted_cpu_infos, n, sizeof(cpu_info_t *), info_compare_total);
 
-	fprintf(fp, "Task:");
+	fprintf(fp, "Task:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
 	for (i = 0; i < n; i++)
 		fprintf(fp, ",%s (%d)", sorted_cpu_infos[i]->comm,
 			sorted_cpu_infos[i]->pid);
 	fprintf(fp, "\n");
 
+	fprintf(fp, "Ticks:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
+	
 	for (i = 0; i < n; i++)
 		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
@@ -511,6 +530,13 @@ static void samples_dump(
 			first_time = sdl->whence;
 
 		fprintf(fp, "%f", duration_round(sdl->whence - first_time));
+		if (opt_flags & OPT_TIMESTAMP) {
+			struct tm tm;
+
+			get_tm(sdl->whence, &tm);
+			fprintf(fp, ",%2.2d:%2.2d:%2.2d",
+				tm.tm_hour, tm.tm_min, tm.tm_sec);
+		}
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
 		for (i = 0; i < n; i++) {
@@ -744,7 +770,7 @@ static void cpu_stat_sort_freq_add(
 static void cpu_stat_diff(
 	const double duration,			/* time between each sample */
 	const int32_t n_lines,			/* number of lines to output */
-	const double whence,			/* nth sample */
+	const double time_now,			/* time right now */
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
 	cpu_stat_t *const cpu_stats_new[])	/* new CPU stats samples */
 {
@@ -769,7 +795,7 @@ static void cpu_stat_diff(
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = true;
 					cpu_stat_sort_freq_add(&sorted, cs);
-					sample_add(cs, whence);
+					sample_add(cs, time_now);
 					found->info->total += cs->delta;
 				}
 			} else {
@@ -778,7 +804,7 @@ static void cpu_stat_diff(
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = false;
 					cpu_stat_sort_freq_add(&sorted, cs);
-					sample_add(cs, whence);
+					sample_add(cs, time_now);
 				}
 			}
 		}
@@ -787,8 +813,19 @@ static void cpu_stat_diff(
 	if (!(opt_flags & OPT_QUIET)) {
 		int32_t j = 0;
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
+		char ts[32];
 
-		printf("  %%CPU   %%USR   %%SYS   PID   Task\n");
+		if (opt_flags & OPT_TIMESTAMP) {
+			struct tm tm;
+
+			get_tm(time_now, &tm);
+			snprintf(ts, sizeof(ts), "  (%2.2d:%2.2d:%2.2d)",
+				tm.tm_hour, tm.tm_min, tm.tm_sec);
+		} else {
+			*ts = '\0';
+		}
+
+		printf("  %%CPU   %%USR   %%SYS   PID   Task%s\n", ts);
 		while (sorted) {
 			double cpu_u_usage =
 				100.0 * (double)sorted->udelta /
@@ -884,7 +921,7 @@ static void get_cpustats(
 static void show_usage(void)
 {
 	printf(APP_NAME ", version " VERSION "\n\n"
-		"Usage: " APP_NAME " [optionns] [duration] [count]\n"
+		"Usage: " APP_NAME " [options] [duration] [count]\n"
 		" -h help\n"
 		" -a calculate CPU utilisation based on all the CPU ticks\n"
 		"    rather than per CPU tick\n"
@@ -898,6 +935,7 @@ static void show_usage(void)
 		" -r specifies a comma separated values output file to dump\n"
 		"    samples into\n"
 		" -s show short command information\n"
+		" -S timestamp output\n"
 		" -t specifies a task tick count threshold where samples less\n"
                 "    than this are ignored\n"
 		" -T show total CPU utilisation statistics\n");
@@ -920,7 +958,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdhiln:qr:st:Tp:");
+		int c = getopt(argc, argv, "acdhiln:qr:sSt:Tp:");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -965,6 +1003,9 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			opt_flags |= OPT_CMD_SHORT;
+			break;
+		case 'S':
+			opt_flags |= OPT_TIMESTAMP;
 			break;
 		case 't':
 			opt_threshold = atof(optarg);

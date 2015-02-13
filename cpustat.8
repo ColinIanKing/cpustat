@@ -65,10 +65,15 @@ run quietly, only really makes sense with -r option.
 .B \-r csv_file
 output gathered data in a comma separated values file. This
 can be then imported and graphed using your favourite open
-source spread sheet.
+source spread sheet. The %CPU utilisation (system and user) for
+each process at each sample time is output into a table.
 .TP
 .B \-s
 show short command information.
+.TP
+.B \-S
+show time stamp. If the \-r option is used then an extra column
+appears in the CSV output file with the time of day for each sample.
 .TP
 .B \-t threshold
 ignore samples where the CPU usage delta per second less than the given threshold.
