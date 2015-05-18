@@ -1,3 +1,10 @@
+cpustat (0.01.16-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Remove SIGILL, SIGABRT sighandling
+
+ -- Colin King <colin.king@canonical.com>  Mon, 18 May 2015 00:18:00 +0100
+
 cpustat (0.01.15-1) unstable; urgency=medium
 
   * Makefile: bump version
