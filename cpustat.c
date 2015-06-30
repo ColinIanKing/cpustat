@@ -618,26 +618,21 @@ static void cpu_info_list_free(void)
 	list_free(&cpu_info_list, cpu_info_free);
 }
 
+
 /*
- *  hash_pjw()
- *	Hash a string, from Aho, Sethi, Ullman, Compiling Techniques.
+ *  hash_djb2a()
+ *	Hash a string, from Dan Bernstein comp.lang.c (xor version)
  */
-static unsigned long hash_pjw(char *const string)
+static uint32_t hash_djb2a(const char *str)
 {
-  	unsigned long h = 0;
-	char *str = string;
+	register uint32_t hash = 5381;
+	register int c;
 
-	while (*str) {
-		unsigned long g;
-		h = (h << 4) + (*str);
-		if (0 != (g = h & 0xf0000000)) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-		str++;
+	while ((c = *str++)) {
+		/* (hash * 33) ^ c */
+		hash = ((hash << 5) + hash) ^ c;
 	}
-
-  	return h % TABLE_SIZE;
+	return hash % TABLE_SIZE;
 }
 
 /*
@@ -679,11 +674,11 @@ static void cpu_stat_add(
 	cpu_stat_t *cs;
 	cpu_stat_t *cs_new;
 	cpu_info_t info;
-	unsigned long h;
+	uint32_t h;
 
 	snprintf(ident, sizeof(ident), "%d:%s", pid, comm);
 
-	h = hash_pjw(ident);
+	h = hash_djb2a(ident);
 	cs = cpu_stats[h];
 
 	for (cs = cpu_stats[h]; cs; cs = cs->next) {
@@ -730,7 +725,7 @@ static cpu_stat_t *cpu_stat_find(
 	snprintf(ident, sizeof(ident), "%d:%s",
 		needle->info->pid, needle->info->comm);
 
-	for (ts = haystack[hash_pjw(ident)]; ts; ts = ts->next)
+	for (ts = haystack[hash_djb2a(ident)]; ts; ts = ts->next)
 		if (strcmp(ts->info->ident, ident) == 0)
 			return ts;
 
