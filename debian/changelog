@@ -1,3 +1,17 @@
+cpustat (0.01.17-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Add -O2 for default optimisation level
+  * free cmdline if it is not the same as comm field
+  * Add some GCC optimisation hints
+  * Reduce hash table size, reduced cache stalls
+  * Re-use old cpu_stat_t via a free list
+  * Re-organise lists, remove extra level of indirection
+  * Use a hash on cpu_info's to do far faster lookup
+  * Use a more efficient hash
+
+ -- Colin King <colin.king@canonical.com>  Tue, 30 Jun 2015 22:07:00 +0100
+
 cpustat (0.01.16-1) unstable; urgency=medium
 
   * Makefile: bump version
