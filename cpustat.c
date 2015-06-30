@@ -37,7 +37,7 @@
 #include <math.h>
 
 #define APP_NAME	"cpustat"
-#define TABLE_SIZE	(32999)		/* Should be a prime */
+#define TABLE_SIZE	(2411)		/* Should be a prime */
 #define OPT_QUIET	(0x00000001)
 #define OPT_IGNORE_SELF	(0x00000002)
 #define	OPT_CMD_SHORT	(0x00000004)
