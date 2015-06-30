@@ -66,13 +66,15 @@ typedef struct {
 typedef void (*list_link_free_t)(void *);
 
 /* per process cpu information */
-typedef struct {
+typedef struct cpu_info_t {
 	pid_t		pid;		/* Process ID */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
 	char		*ident;		/* Pid + comm identifier */
 	bool		kernel_thread;	/* true if a kernel thread */
 	uint64_t	total;		/* Total number of CPU ticks */
+	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
+	struct cpu_info_t *list_next;	/* Next cpu info in list */
 } cpu_info_t;
 
 /* CPU utilisation stats */
@@ -103,7 +105,10 @@ typedef struct sample_delta_list {
 	list_t		list;
 } sample_delta_list_t;
 
-static list_t cpu_info_list;		/* cache list of cpu_info */
+static cpu_info_t *cpu_info_hash[TABLE_SIZE];
+					/* hash of cpu_info */
+static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
+static size_t cpu_info_list_length;	/* cpu_info_list length */
 static list_t sample_list;		/* list of samples, sorted in sample time order */
 static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
@@ -474,8 +479,9 @@ static void samples_dump(
 {
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
+	cpu_info_t *cpu_info;
 	link_t	*link;
-	size_t i = 0, n = cpu_info_list.length;
+	size_t i = 0, n;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
 	double first_time = -1.0;
@@ -491,16 +497,15 @@ static void samples_dump(
 		return;
 	}
 
-	if ((sorted_cpu_infos = calloc(n, sizeof(cpu_info_t*))) == NULL) {
+	if ((sorted_cpu_infos = calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
 		fprintf(stderr, "Cannot allocate buffer for sorting cpu_infos\n");
 		exit(EXIT_FAILURE);
 	}
 
 	/* Just want the CPUs with some non-zero total */
-	for (n = 0, link = cpu_info_list.head; link; link = link->next) {
-		cpu_info_t *info = (cpu_info_t*)link->data;
-		if (info->total > 0)
-			sorted_cpu_infos[n++] = info;
+	for (n = 0, cpu_info = cpu_info_list; cpu_info; cpu_info = cpu_info->list_next) {
+		if (cpu_info->total > 0)
+			sorted_cpu_infos[n++] = cpu_info;
 	}
 
 	qsort(sorted_cpu_infos, n, sizeof(cpu_info_t *), info_compare_total);
@@ -555,13 +560,11 @@ static void samples_dump(
  *	try to find existing cpu info in cache, and to the cache
  *	if it is new.
  */
-static cpu_info_t *cpu_info_find(const cpu_info_t *const new_info)
+static cpu_info_t *cpu_info_find(const cpu_info_t *const new_info, const uint32_t hash)
 {
-	link_t *link;
 	cpu_info_t *info;
 
-	for (link = cpu_info_list.head; link; link = link->next) {
-		info = (cpu_info_t*)link->data;
+	for (info = cpu_info_hash[hash]; info; info = info->hash_next) {
 		if (strcmp(new_info->ident, info->ident) == 0)
 			return info;
 	}
@@ -590,9 +593,9 @@ static cpu_info_t *cpu_info_find(const cpu_info_t *const new_info)
 	}
 
 	/* Does not exist in list, append it */
-
-	list_append(&cpu_info_list, info);
-
+	info->list_next = cpu_info_list;
+	cpu_info_list = info;
+	
 	return info;
 }
 
@@ -615,7 +618,14 @@ static void cpu_info_free(void *const data)
  */
 static void cpu_info_list_free(void)
 {
-	list_free(&cpu_info_list, cpu_info_free);
+	cpu_info_t *cpu_info = cpu_info_list;
+
+	while (cpu_info) {
+		cpu_info_t *next = cpu_info->list_next;
+		cpu_info_free(cpu_info);
+
+		cpu_info = next;
+	}
 }
 
 
@@ -676,7 +686,7 @@ static void cpu_stat_add(
 	cpu_info_t info;
 	uint32_t h;
 
-	snprintf(ident, sizeof(ident), "%d:%s", pid, comm);
+	snprintf(ident, sizeof(ident), "%x%s", pid, comm);
 
 	h = hash_djb2a(ident);
 	cs = cpu_stats[h];
@@ -703,7 +713,7 @@ static void cpu_stat_add(
 
 	cs_new->utime = utime;
 	cs_new->stime = stime;
-	cs_new->info = cpu_info_find(&info);
+	cs_new->info = cpu_info_find(&info, h);
 	cs_new->time = time_now;
 	cs_new->next = cpu_stats[h];
 	cs_new->sorted_usage_next = NULL;
@@ -722,7 +732,7 @@ static cpu_stat_t *cpu_stat_find(
 	cpu_stat_t *ts;
 	char ident[1024];
 
-	snprintf(ident, sizeof(ident), "%d:%s",
+	snprintf(ident, sizeof(ident), "%x%s",
 		needle->info->pid, needle->info->comm);
 
 	for (ts = haystack[hash_djb2a(ident)]; ts; ts = ts->next)
@@ -941,7 +951,6 @@ int main(int argc, char **argv)
 	double time_start, time_now;
 	struct sigaction new_action;
 
-	list_init(&cpu_info_list);
 	list_init(&sample_list);
 
 	clock_ticks = sysconf(_SC_CLK_TCK);
