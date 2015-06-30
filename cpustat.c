@@ -97,19 +97,22 @@ typedef struct sample_delta_item {
 	int64_t		delta;		/* difference in CPU ticks between old and new */
 	double		time_delta;	/* difference in time between old and new */
 	cpu_info_t	*info;		/* CPU info this refers to */
+	struct sample_delta_item *next;	/* Next in the list */
 } sample_delta_item_t;
 
 /* list of sample_delta_items */
 typedef struct sample_delta_list {
 	double		whence;		/* when the sample was taken */
-	list_t		list;
+	struct sample_delta_item *sample_delta_item_list;
+	struct sample_delta_list *next;	/* next item in sample delta list */
 } sample_delta_list_t;
 
 static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 					/* hash of cpu_info */
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
 static size_t cpu_info_list_length;	/* cpu_info_list length */
-static list_t sample_list;		/* list of samples, sorted in sample time order */
+static sample_delta_list_t *sample_delta_list;
+					/* list of samples, sorted in sample time order */
 static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
 static double opt_threshold;		/* ignore samples with CPU usage deltas less than this */
@@ -227,61 +230,6 @@ static double gettime_to_double(void)
 }
 
 /*
- *  list_init()
- *	initialise list
- */
-static inline void list_init(list_t *const list)
-{
-	list->head = NULL;
-	list->tail = NULL;
-	list->length = 0;
-}
-
-/*
- *  list_append()
- *	add new data to end of the list
- */
-static link_t *list_append(list_t *const list, void *const data)
-{
-	link_t *link;
-
-	if ((link = calloc(sizeof(link_t), 1)) == NULL) {
-		fprintf(stderr, "Cannot allocate list link\n");
-		exit(EXIT_FAILURE);
-	}
-	link->data = data;
-
-	if (list->head == NULL) {
-		list->head = link;
-	} else {
-		list->tail->next = link;
-	}
-	list->tail = link;
-	list->length++;
-
-	return link;
-}
-
-/*
- *  list_free()
- *	free list and items in list using freefunc callback
- */
-static void list_free(list_t *const list, list_link_free_t const freefunc)
-{
-	link_t	*link, *next;
-
-	if (list == NULL)
-		return;
-
-	for (link = list->head; link; link = next) {
-		next = link->next;
-		if (link->data && freefunc)
-			freefunc(link->data);
-		free(link);
-	}
-}
-
-/*
  *  handle_sig()
  *      catch signal and flag a stop
  */
@@ -359,24 +307,25 @@ static char *get_pid_cmdline(const pid_t pid)
 }
 
 /*
- *  sample_delta_free()
- *	free sample delta item
- */
-static void sample_delta_free(void *const data)
-{
-	sample_delta_list_t *sdl = (sample_delta_list_t*)data;
-
-	list_free(&sdl->list, free);
-	free(sdl);
-}
-
-/*
  *  samples_free()
  *	free collected samples
  */
 static void samples_free(void)
 {
-	list_free(&sample_list, sample_delta_free);
+	sample_delta_list_t *sdl = sample_delta_list;
+
+	while (sdl) {
+		sample_delta_list_t *sdl_next = sdl->next;
+		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
+
+		while (sdi) {
+			sample_delta_item_t *sdi_next = sdi->next;
+			free(sdi);
+			sdi = sdi_next;
+		}
+		free(sdl);
+		sdl = sdl_next;
+	}
 }
 
 /*
@@ -387,16 +336,14 @@ static void sample_add(
 	const cpu_stat_t *const cpu_stat,
 	const double whence)
 {
-	link_t	*link;
 	bool	found = false;
-	sample_delta_list_t *sdl = NULL;
+	sample_delta_list_t *sdl;
 	sample_delta_item_t *sdi;
 
 	if (csv_results == NULL)	/* No need if not request */
 		return;
 
-	for (link = sample_list.head; link; link = link->next) {
-		sdl = (sample_delta_list_t*)link->data;
+	for (sdl = sample_delta_list; sdl; sdl = sdl->next) {
 		if (sdl->whence == whence) {
 			found = true;
 			break;
@@ -413,7 +360,8 @@ static void sample_add(
 			exit(EXIT_FAILURE);
 		}
 		sdl->whence = whence;
-		list_append(&sample_list, sdl);
+		sdl->next = sample_delta_list;
+		sample_delta_list = sdl;
 	}
 
 	/* Now append the sdi onto the list */
@@ -423,9 +371,9 @@ static void sample_add(
 	}
 	sdi->delta = cpu_stat->delta;
 	sdi->time_delta = cpu_stat->time_delta;
-	sdi->info  = cpu_stat->info;
-
-	list_append(&sdl->list, sdi);
+	sdi->info = cpu_stat->info;
+	sdi->next = sdl->sample_delta_item_list;
+	sdl->sample_delta_item_list = sdi;
 }
 
 /*
@@ -436,10 +384,9 @@ static inline sample_delta_item_t *sample_find(
 	const sample_delta_list_t *const sdl,
 	const cpu_info_t *const info)
 {
-	link_t *link;
+	sample_delta_item_t *sdi;
 
-	for (link = sdl->list.head; link; link = link->next) {
-		sample_delta_item_t *sdi = (sample_delta_item_t*)link->data;
+	for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
 		if (sdi->info == info)
 			return sdi;
 	}
@@ -480,7 +427,6 @@ static void samples_dump(
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
 	cpu_info_t *cpu_info;
-	link_t	*link;
 	size_t i = 0, n;
 	FILE *fp;
 	unsigned long nr_ticks = clock_ticks;
@@ -522,9 +468,7 @@ static void samples_dump(
 		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
 
-	for (link = sample_list.head; link; link = link->next) {
-		sdl = (sample_delta_list_t*)link->data;
-
+	for (sdl = sample_delta_list; sdl; sdl = sdl->next) {
 		if (first_time < 0)
 			first_time = sdl->whence;
 
@@ -950,8 +894,6 @@ int main(int argc, char **argv)
 	bool forever = true;
 	double time_start, time_now;
 	struct sigaction new_action;
-
-	list_init(&sample_list);
 
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
