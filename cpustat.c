@@ -50,19 +50,6 @@
 #define OPT_MATCH_PID	(0x00000100)
 #define OPT_TIMESTAMP	(0x00000200)
 
-/* Generic linked list */
-typedef struct link {
-	void *data;			/* Data in list */
-	struct link *next;		/* Next item in list */
-} link_t;
-
-/* Generic list header */
-typedef struct {
-	link_t	*head;			/* Head of list */
-	link_t	*tail;			/* Tail of list */
-	size_t	length;			/* Length of list */
-} list_t;
-
 typedef void (*list_link_free_t)(void *);
 
 /* per process cpu information */
@@ -107,6 +94,7 @@ typedef struct sample_delta_list {
 	struct sample_delta_list *next;	/* next item in sample delta list */
 } sample_delta_list_t;
 
+static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
 static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 					/* hash of cpu_info */
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
@@ -557,7 +545,7 @@ static void cpu_info_free(void *const data)
 }
 
 /*
- *  cpu_info_free
+ *  cpu_info_list_free
  *	free up all unique cpu infos
  */
 static void cpu_info_list_free(void)
@@ -569,6 +557,21 @@ static void cpu_info_list_free(void)
 		cpu_info_free(cpu_info);
 
 		cpu_info = next;
+	}
+}
+
+/*
+ *  cpu_stat_list_free
+ *	free up cpu stat info from the free list
+ */
+static void cpu_stat_list_free(void)
+{
+	cpu_stat_t *cs = cpu_stat_free_list;
+
+	while (cs) {
+		cpu_stat_t *next = cs->next;
+		free(cs);
+		cs = next;
 	}
 }
 
@@ -603,7 +606,10 @@ static void cpu_stat_free_contents(
 
 		while (cs) {
 			cpu_stat_t *next = cs->next;
-			free(cs);
+
+			/* Shove it onto the free list */
+			cs->next = cpu_stat_free_list;
+			cpu_stat_free_list = cs;
 
 			cs = next;
 		}
@@ -644,9 +650,16 @@ static void cpu_stat_add(
 	}
 	/* Not found, it is new! */
 
-	if ((cs_new = calloc(1, sizeof(cpu_stat_t))) == NULL) {
-		fprintf(stderr, "Out of memory allocating a cpu stat\n");
-		exit(1);
+	if (cpu_stat_free_list) {
+		/* Re-use one from the free list */
+		cs_new = cpu_stat_free_list;
+		cpu_stat_free_list = cs_new->next;
+		memset(cs_new, 0, sizeof(*cs_new));
+	} else {
+		if ((cs_new = calloc(1, sizeof(cpu_stat_t))) == NULL) {
+			fprintf(stderr, "Out of memory allocating a cpu stat\n");
+			exit(1);
+		}
 	}
 
 	info.pid = pid;
@@ -1071,6 +1084,7 @@ int main(int argc, char **argv)
 	free(cpu_stats_new);
 	samples_free();
 	cpu_info_list_free();
+	cpu_stat_list_free();
 
 	exit(EXIT_SUCCESS);
 }
