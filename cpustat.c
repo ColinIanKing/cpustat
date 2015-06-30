@@ -50,7 +50,33 @@
 #define OPT_MATCH_PID	(0x00000100)
 #define OPT_TIMESTAMP	(0x00000200)
 
-typedef void (*list_link_free_t)(void *);
+
+#define _VER_(major, minor, patchlevel) \
+	((major * 10000) + (minor * 100) + patchlevel)
+
+#if defined(__GNUC__) && defined(__GNUC_MINOR__)
+#if defined(__GNUC_PATCHLEVEL__)
+#define NEED_GNUC(major, minor, patchlevel) \
+	_VER_(major, minor, patchlevel) <= _VER_(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#else
+#define NEED_GNUC(major, minor, patchlevel) \
+	_VER_(major, minor, patchlevel) <= _VER_(__GNUC__, __GNUC_MINOR__, 0)
+#endif
+#else
+#define NEED_GNUC(major, minor, patchlevel) (0)
+#endif
+
+#if defined(__GNUC__) && NEED_GNUC(4,6,0)
+#define HOT __attribute__ ((hot))
+#else
+#define HOT
+#endif
+
+#if defined(__GNUC__) && !defined(__clang__) && NEED_GNUC(4,6,0)
+#define OPTIMIZE3 __attribute__((optimize("-O3")))
+#else
+#define OPTIMIZE3
+#endif
 
 /* per process cpu information */
 typedef struct cpu_info_t {
@@ -320,7 +346,7 @@ static void samples_free(void)
  *  sample_add()
  *	add a cpu_stat's delta and info field to a list at time position whence
  */
-static void sample_add(
+static void OPTIMIZE3 HOT sample_add(
 	const cpu_stat_t *const cpu_stat,
 	const double whence)
 {
@@ -368,7 +394,7 @@ static void sample_add(
  *  sample_find()
  *	scan through a sample_delta_list for cpu info, return NULL if not found
  */
-static inline sample_delta_item_t *sample_find(
+static inline OPTIMIZE3 HOT sample_delta_item_t *sample_find(
 	const sample_delta_list_t *const sdl,
 	const cpu_info_t *const info)
 {
@@ -492,7 +518,7 @@ static void samples_dump(
  *	try to find existing cpu info in cache, and to the cache
  *	if it is new.
  */
-static cpu_info_t *cpu_info_find(const cpu_info_t *const new_info, const uint32_t hash)
+static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(const cpu_info_t *const new_info, const uint32_t hash)
 {
 	cpu_info_t *info;
 
@@ -580,7 +606,7 @@ static void cpu_stat_list_free(void)
  *  hash_djb2a()
  *	Hash a string, from Dan Bernstein comp.lang.c (xor version)
  */
-static uint32_t hash_djb2a(const char *str)
+static uint32_t OPTIMIZE3 HOT hash_djb2a(const char *str)
 {
 	register uint32_t hash = 5381;
 	register int c;
@@ -622,7 +648,7 @@ static void cpu_stat_free_contents(
  *	add pid stats to a hash table if it is new, otherwise just
  *	accumulate the tick count.
  */
-static void cpu_stat_add(
+static void OPTIMIZE3 HOT cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
 	const double time_now,		/* time sample was taken */
 	const pid_t pid,		/* PID of task */
@@ -682,7 +708,7 @@ static void cpu_stat_add(
  *  cpu_stat_find()
  *	find a CPU stat (needle) in a CPU stat hash table (haystack)
  */
-static cpu_stat_t *cpu_stat_find(
+static cpu_stat_t OPTIMIZE3 HOT *cpu_stat_find(
 	cpu_stat_t *const haystack[],		/* CPU stat hash table */
 	const cpu_stat_t *const needle)		/* CPU stat to find */
 {
@@ -703,7 +729,7 @@ static cpu_stat_t *cpu_stat_find(
  *  cpu_stat_sort_freq_add()
  *	add a CPU stat to a sorted list of CPU stats
  */
-static void cpu_stat_sort_freq_add(
+static void OPTIMIZE3 HOT cpu_stat_sort_freq_add(
 	cpu_stat_t **sorted,		/* CPU stat sorted list */
 	cpu_stat_t *const new)		/* CPU stat to add */
 {
