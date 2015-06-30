@@ -565,6 +565,8 @@ static void cpu_info_free(void *const data)
 {
 	cpu_info_t *info = (cpu_info_t*)data;
 
+	if (info->cmdline != info->comm)
+		free(info->cmdline);
 	free(info->comm);
 	free(info->ident);
 	free(info);
