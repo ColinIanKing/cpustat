@@ -276,7 +276,7 @@ static unsigned int count_bits(const unsigned int val)
  */
 static char *get_pid_cmdline(const pid_t pid)
 {
-	char buffer[4096];
+	static char buffer[4096];
 	char *ptr;
 	int fd;
 	ssize_t ret;
@@ -317,9 +317,9 @@ static char *get_pid_cmdline(const pid_t pid)
 	}
 
 	if (opt_flags & OPT_DIRNAME_STRIP)
-		return strdup(basename(buffer));
+		return basename(buffer);
 
-	return strdup(buffer);
+	return buffer;
 }
 
 /*
@@ -546,13 +546,20 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	}
 
 	info->pid = new_info->pid;
-	info->comm = strdup(new_info->comm);
+	if ((info->comm = strdup(new_info->comm)) == NULL) {
+		fprintf(stderr, "Cannot allocate CPU comm field info\n");
+		exit(EXIT_FAILURE);
+	}
 	info->kernel_thread = new_info->kernel_thread;
 
-	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM))
+	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
-	else
-		info->cmdline = new_info->cmdline;
+	} else {
+		if ((info->cmdline = strdup(new_info->cmdline)) == NULL) {
+			fprintf(stderr, "Cannot allocate CPU cmdline field info\n");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	info->ident = strdup(new_info->ident);
 
