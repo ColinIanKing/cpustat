@@ -93,11 +93,12 @@ typedef struct cpu_info_t {
 /* CPU utilisation stats */
 typedef struct cpu_stat {
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
-	struct cpu_stat *sorted_usage_next;/* Next CPU stat in CPU usage sorted list */
+	struct cpu_stat *sorted_usage_next;
+					/* Next CPU stat in CPU usage list */
 	cpu_info_t	*info;		/* CPU info */
 	uint64_t	utime;		/* User time */
 	uint64_t	stime;		/* System time */
-	int64_t		delta;		/* Total Change in CPU ticks since last time */
+	int64_t		delta;		/* Total Change in CPU ticks */
 	int64_t		udelta;		/* Change in user time */
 	int64_t		sdelta;		/* Change in system time */
 	double		time;		/* Wall clock time */
@@ -109,8 +110,8 @@ typedef struct cpu_stat {
 typedef struct sample_delta_item {
 	struct sample_delta_item *next;	/* Next in the list */
 	cpu_info_t	*info;		/* CPU info this refers to */
-	int64_t		delta;		/* difference in CPU ticks between old and new */
-	double		time_delta;	/* difference in time between old and new */
+	int64_t		delta;		/* difference in CPU ticks */
+	double		time_delta;	/* difference in time */
 } sample_delta_item_t;
 
 /* list of sample_delta_items */
@@ -126,7 +127,7 @@ static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
 static size_t cpu_info_list_length;	/* cpu_info_list length */
 static sample_delta_list_t *sample_delta_list;
-					/* list of samples, sorted in sample time order */
+					/* samples, sorted by sample time */
 static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
 static double opt_threshold;		/* ignore samples with CPU usage deltas less than this */
@@ -457,13 +458,16 @@ static void samples_dump(
 		return;
 	}
 
-	if ((sorted_cpu_infos = calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
-		fprintf(stderr, "Cannot allocate buffer for sorting cpu_infos\n");
+	if ((sorted_cpu_infos =
+	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
+		fprintf(stderr,
+			"Cannot allocate buffer for sorting cpu_infos\n");
 		exit(EXIT_FAILURE);
 	}
 
 	/* Just want the CPUs with some non-zero total */
-	for (n = 0, cpu_info = cpu_info_list; cpu_info; cpu_info = cpu_info->list_next) {
+	for (n = 0, cpu_info = cpu_info_list; cpu_info;
+	     cpu_info = cpu_info->list_next) {
 		if (cpu_info->total > 0)
 			sorted_cpu_infos[n++] = cpu_info;
 	}
@@ -497,12 +501,15 @@ static void samples_dump(
 
 		/* Scan in CPU info order to be consistent for all sdl rows */
 		for (i = 0; i < n; i++) {
-			sample_delta_item_t *sdi = sample_find(sdl, sorted_cpu_infos[i]);
+			sample_delta_item_t *sdi =
+				sample_find(sdl, sorted_cpu_infos[i]);
 			if (sdi) {
-				double duration = duration_round(sdi->time_delta);
+				double duration =
+					duration_round(sdi->time_delta);
 				fprintf(fp,",%f",
 					(duration == 0.0) ? 0.0 : 
-					100.0 * (double)sdi->delta / (duration * (double)nr_ticks));
+					100.0 * (double)sdi->delta /
+					(duration * (double)nr_ticks));
 			} else
 				fprintf(fp,", ");
 		}
@@ -518,7 +525,9 @@ static void samples_dump(
  *	try to find existing cpu info in cache, and to the cache
  *	if it is new.
  */
-static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(const cpu_info_t *const new_info, const uint32_t hash)
+static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
+	const cpu_info_t *const new_info,
+	const uint32_t hash)
 {
 	cpu_info_t *info;
 
@@ -685,7 +694,8 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		memset(cs_new, 0, sizeof(*cs_new));
 	} else {
 		if ((cs_new = calloc(1, sizeof(cpu_stat_t))) == NULL) {
-			fprintf(stderr, "Out of memory allocating a cpu stat\n");
+			fprintf(stderr,
+				"Out of memory allocating a cpu stat\n");
 			exit(1);
 		}
 	}
@@ -748,8 +758,8 @@ static void OPTIMIZE3 HOT cpu_stat_sort_freq_add(
 /*
  *  cpu_stat_diff()
  *	find difference in tick count between to hash table samples of CPU
- *	stats.  We are interested in just current and new CPU stats, not ones that
- *	silently die
+ *	stats.  We are interested in just current and new CPU stats,
+ *	not ones that silently die
  */
 static void cpu_stat_diff(
 	const double duration,			/* time between each sample */
@@ -826,18 +836,22 @@ static void cpu_stat_diff(
 				j++;
 				if (cpu_t_usage > 0.0) {
 					printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
-						cpu_t_usage, cpu_u_usage, cpu_s_usage,
+						cpu_t_usage, cpu_u_usage,
+						cpu_s_usage,
 						sorted->info->pid,
-						sorted->info->kernel_thread ? "[" : "",
+						sorted->info->kernel_thread ?
+							"[" : "",
 						sorted->info->cmdline,
-						sorted->info->kernel_thread ? "]" : "");
+						sorted->info->kernel_thread ?
+							"]" : "");
 				}
 			}
 			sorted = sorted->sorted_usage_next;
 		}
 		if (opt_flags & OPT_TOTAL)
 			printf("%6.2f %6.2f %6.2f Total\n",
-				cpu_u_total + cpu_s_total, cpu_u_total, cpu_s_total);
+				cpu_u_total + cpu_s_total,
+				cpu_u_total, cpu_s_total);
 		printf("\n");
 	}
 }
@@ -876,13 +890,14 @@ static void get_cpustats(
 		if (!isdigit(entry->d_name[0]))
 			continue;
 
-		snprintf(filename, sizeof(filename), "/proc/%s/stat", entry->d_name);
+		snprintf(filename, sizeof(filename), "/proc/%s/stat",
+			entry->d_name);
 		if ((fp = fopen(filename, "r")) == NULL)
 			continue;
 
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u "
-				"%20" SCNu64 "%20" SCNu64,
+		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d "
+				"%*u %*u %*u %*u %*u %20" SCNu64 "%20" SCNu64,
 			&pid, comm, &utime, &stime);
 		(void)fclose(fp);
 
@@ -892,7 +907,8 @@ static void get_cpustats(
 			continue;
 
 		if (n == 4)
-			cpu_stat_add(cpu_stats, time_now, pid, comm, utime, stime);
+			cpu_stat_add(cpu_stats, time_now, pid, comm,
+				utime, stime);
 	}
 
 	(void)closedir(dir);
@@ -969,7 +985,8 @@ int main(int argc, char **argv)
 				exit(EXIT_FAILURE);
 			}
 			if (n_lines < 1) {
-				fprintf(stderr, "-n option must be greater than 0\n");
+				fprintf(stderr,
+					"-n option must be greater than 0\n");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -977,7 +994,8 @@ int main(int argc, char **argv)
 			errno = 0;
 			opt_pid = strtol(optarg, NULL, 10);
 			if (errno) {
-				fprintf(stderr, "Invalid value for -o option\n");
+				fprintf(stderr,
+					"Invalid value for -o option\n");
 				exit(EXIT_FAILURE);
 			}
 			opt_flags |= OPT_MATCH_PID;
@@ -991,7 +1009,8 @@ int main(int argc, char **argv)
 		case 't':
 			opt_threshold = atof(optarg);
 			if (opt_threshold < 0.0) {
-				fprintf(stderr, "-t threshold must be 0 or more.\n");
+				fprintf(stderr,
+					"-t threshold must be 0 or more.\n");
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -1053,7 +1072,6 @@ int main(int argc, char **argv)
 
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
-
 	if (cpu_stats_old == NULL || cpu_stats_new == NULL) {
 		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
@@ -1073,8 +1091,9 @@ int main(int argc, char **argv)
 		/* Play catch-up, probably been asleep */
 		if (secs < 0.0) {
 			t = ceil((time_now - time_start) / duration_secs);
-			secs = time_start + ((double)t * duration_secs) - time_now;
-			/* We don't get sane stats if the duration is too small */
+			secs = time_start +
+				((double)t * duration_secs) - time_now;
+			/* We don't get sane stats if duration is too small */
 			if (secs < 0.5)
 				secs += duration_secs;
 		} else {
@@ -1086,7 +1105,8 @@ int main(int argc, char **argv)
 			if (errno == EINTR) {
 				stop_cpustat = true;
 			} else {
-				fprintf(stderr, "select failed: errno=%d (%s)\n",
+				fprintf(stderr,
+					"select failed: errno=%d (%s)\n",
 					errno, strerror(errno));
 				break;
 			}
@@ -1105,7 +1125,6 @@ int main(int argc, char **argv)
 	}
 
 	samples_dump(csv_results);
-
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
 	free(cpu_stats_old);
