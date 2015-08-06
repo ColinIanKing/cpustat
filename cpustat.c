@@ -567,6 +567,9 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	info->list_next = cpu_info_list;
 	cpu_info_list = info;
 	cpu_info_list_length++;
+
+	info->hash_next = cpu_info_hash[hash];
+	cpu_info_hash[hash] = info;
 	
 	return info;
 }
