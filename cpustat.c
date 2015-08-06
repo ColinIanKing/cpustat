@@ -562,6 +562,7 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	/* Does not exist in list, append it */
 	info->list_next = cpu_info_list;
 	cpu_info_list = info;
+	cpu_info_list_length++;
 	
 	return info;
 }
