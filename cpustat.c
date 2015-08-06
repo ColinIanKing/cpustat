@@ -80,44 +80,44 @@
 
 /* per process cpu information */
 typedef struct cpu_info_t {
-	pid_t		pid;		/* Process ID */
+	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
+	struct cpu_info_t *list_next;	/* Next cpu info in list */
+	uint64_t	total;		/* Total number of CPU ticks */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
 	char		*ident;		/* Pid + comm identifier */
+	pid_t		pid;		/* Process ID */
 	bool		kernel_thread;	/* true if a kernel thread */
-	uint64_t	total;		/* Total number of CPU ticks */
-	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
-	struct cpu_info_t *list_next;	/* Next cpu info in list */
 } cpu_info_t;
 
 /* CPU utilisation stats */
 typedef struct cpu_stat {
+	struct cpu_stat *next;		/* Next cpu stat in hash table */
+	struct cpu_stat *sorted_usage_next;/* Next CPU stat in CPU usage sorted list */
+	cpu_info_t	*info;		/* CPU info */
 	uint64_t	utime;		/* User time */
 	uint64_t	stime;		/* System time */
-	double		time;		/* Wall clock time */
 	int64_t		delta;		/* Total Change in CPU ticks since last time */
 	int64_t		udelta;		/* Change in user time */
 	int64_t		sdelta;		/* Change in system time */
+	double		time;		/* Wall clock time */
 	double		time_delta;	/* Wall clock time delta */
 	bool		old;		/* Existing task, not a new one */
-	cpu_info_t	*info;		/* CPU info */
-	struct cpu_stat *next;		/* Next cpu stat in hash table */
-	struct cpu_stat *sorted_usage_next;/* Next CPU stat in CPU usage sorted list */
 } cpu_stat_t;
 
 /* sample delta item as an element of the sample_delta_list_t */
 typedef struct sample_delta_item {
+	struct sample_delta_item *next;	/* Next in the list */
+	cpu_info_t	*info;		/* CPU info this refers to */
 	int64_t		delta;		/* difference in CPU ticks between old and new */
 	double		time_delta;	/* difference in time between old and new */
-	cpu_info_t	*info;		/* CPU info this refers to */
-	struct sample_delta_item *next;	/* Next in the list */
 } sample_delta_item_t;
 
 /* list of sample_delta_items */
 typedef struct sample_delta_list {
-	double		whence;		/* when the sample was taken */
 	struct sample_delta_item *sample_delta_item_list;
 	struct sample_delta_list *next;	/* next item in sample delta list */
+	double		whence;		/* when the sample was taken */
 } sample_delta_list_t;
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
