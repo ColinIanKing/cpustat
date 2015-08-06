@@ -118,7 +118,7 @@ typedef struct sample_delta_item {
 typedef struct sample_delta_list {
 	struct sample_delta_item *sample_delta_item_list;
 	struct sample_delta_list *next;	/* next item in sample delta list */
-	double		whence;		/* when the sample was taken */
+	double 		whence;		/* when the sample was taken */
 } sample_delta_list_t;
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
@@ -126,7 +126,8 @@ static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 					/* hash of cpu_info */
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
 static size_t cpu_info_list_length;	/* cpu_info_list length */
-static sample_delta_list_t *sample_delta_list;
+static sample_delta_list_t *sample_delta_list_head;
+static sample_delta_list_t *sample_delta_list_tail;
 					/* samples, sorted by sample time */
 static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
@@ -327,7 +328,7 @@ static char *get_pid_cmdline(const pid_t pid)
  */
 static void samples_free(void)
 {
-	sample_delta_list_t *sdl = sample_delta_list;
+	sample_delta_list_t *sdl = sample_delta_list_head;
 
 	while (sdl) {
 		sample_delta_list_t *sdl_next = sdl->next;
@@ -358,7 +359,7 @@ static void OPTIMIZE3 HOT sample_add(
 	if (csv_results == NULL)	/* No need if not request */
 		return;
 
-	for (sdl = sample_delta_list; sdl; sdl = sdl->next) {
+	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
 		if (sdl->whence == whence) {
 			found = true;
 			break;
@@ -375,8 +376,11 @@ static void OPTIMIZE3 HOT sample_add(
 			exit(EXIT_FAILURE);
 		}
 		sdl->whence = whence;
-		sdl->next = sample_delta_list;
-		sample_delta_list = sdl;
+		if (sample_delta_list_head)
+			sample_delta_list_tail->next = sdl;
+		else
+			sample_delta_list_head = sdl;
+		sample_delta_list_tail = sdl;
 	}
 
 	/* Now append the sdi onto the list */
@@ -486,7 +490,7 @@ static void samples_dump(
 		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
 
-	for (sdl = sample_delta_list; sdl; sdl = sdl->next) {
+	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
 		if (first_time < 0)
 			first_time = sdl->whence;
 
