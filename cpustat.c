@@ -57,7 +57,7 @@
 #define OPT_EXTRA_STATS		(0x00002000)
 
 /* Histogram specific constants */
-#define MAX_DIVISIONS	(20)
+#define MAX_DIVISIONS		(20)
 #define DISTRIBUTION_WIDTH	(40)
 
 #define _VER_(major, minor, patchlevel) \
