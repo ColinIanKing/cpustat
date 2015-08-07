@@ -49,6 +49,7 @@
 #define OPT_TOTAL	(0x00000080)
 #define OPT_MATCH_PID	(0x00000100)
 #define OPT_TIMESTAMP	(0x00000200)
+#define OPT_GRAND_TOTAL	(0x00000400)
 
 
 #define _VER_(major, minor, patchlevel) \
@@ -82,6 +83,8 @@
 typedef struct cpu_info_t {
 	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
 	struct cpu_info_t *list_next;	/* Next cpu info in list */
+	uint64_t	utotal;		/* Usr Space total CPU ticks */
+	uint64_t	stotal;		/* Sys Space total CPU ticks */
 	uint64_t	total;		/* Total number of CPU ticks */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
@@ -437,11 +440,74 @@ static inline double duration_round(const double duration)
 }
 
 /*
+ *  info_banner_dump()
+ *	dump banner for per_info stats
+ */
+static void info_banner_dump(const double time_now)
+{
+	char ts[32];
+
+	if (opt_flags & OPT_TIMESTAMP) {
+		struct tm tm;
+
+		get_tm(time_now, &tm);
+		snprintf(ts, sizeof(ts), "  (%2.2d:%2.2d:%2.2d)",
+			tm.tm_hour, tm.tm_min, tm.tm_sec);
+	} else {
+		*ts = '\0';
+	}
+	printf("  %%CPU   %%USR   %%SYS   PID   Task%s\n", ts);
+}
+
+/*
+ *  info_dump()
+ *	dump per cpu_info stats
+ */
+static void info_dump(
+	const uint64_t uticks,
+	const uint64_t sticks,
+	const uint64_t ticks,
+	const double duration,
+	const cpu_info_t *info,
+	double *u_total,
+	double *s_total)
+{
+	const double total_ticks = (double)ticks * duration;
+	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
+	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
+
+	*u_total += cpu_u_usage;
+	*s_total += cpu_s_usage;
+
+	printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
+		cpu_u_usage + cpu_s_usage,
+		cpu_u_usage, cpu_s_usage,
+		info->pid,
+		info->kernel_thread ?
+			"[" : "",
+		info->cmdline,
+		info->kernel_thread ?
+			"]" : "");
+}
+
+static void info_total_dump(
+	const double u_total,
+	const double s_total)
+{
+	if (opt_flags & OPT_TOTAL)
+		printf("%6.2f %6.2f %6.2f Total\n",
+			u_total + s_total, u_total, s_total);
+}
+
+/*
  *  samples_dump()
  *	dump out samples to file
  */
 static void samples_dump(
-	const char *const filename)		/* file to dump samples */
+	const char *const filename,	/* file to dump samples */
+	const double duration,		/* duration in seconds */
+	const double time_now,		/* time right now */
+	const uint32_t samples)		/* number of samples */
 {
 	sample_delta_list_t	*sdl;
 	cpu_info_t **sorted_cpu_infos;
@@ -453,14 +519,6 @@ static void samples_dump(
 
 	if (opt_flags & OPT_TICKS_ALL)
 		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
-
-	if (filename == NULL)
-		return;
-
-	if ((fp = fopen(filename, "w")) == NULL) {
-		fprintf(stderr, "Cannot write to file %s\n", filename);
-		return;
-	}
 
 	if ((sorted_cpu_infos =
 	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
@@ -478,6 +536,30 @@ static void samples_dump(
 
 	qsort(sorted_cpu_infos, n, sizeof(cpu_info_t *), info_compare_total);
 
+	if (opt_flags & OPT_GRAND_TOTAL) {
+		double cpu_u_total = 0.0, cpu_s_total = 0.0;
+
+		printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
+			samples, duration);
+		info_banner_dump(time_now);
+		for (i = 0; i < n; i++) {
+			info_dump(sorted_cpu_infos[i]->utotal, sorted_cpu_infos[i]->stotal,
+				nr_ticks, duration, sorted_cpu_infos[i],
+				&cpu_u_total, &cpu_s_total);
+		}
+		info_total_dump(cpu_u_total, cpu_s_total);
+	}
+
+	if (!filename) {
+		free(sorted_cpu_infos);
+		return;
+	}
+
+	if ((fp = fopen(filename, "w")) == NULL) {
+		fprintf(stderr, "Cannot write to file %s\n", filename);
+		free(sorted_cpu_infos);
+		return;
+	}
 	fprintf(fp, "Task:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
 	for (i = 0; i < n; i++)
 		fprintf(fp, ",%s (%d)", sorted_cpu_infos[i]->comm,
@@ -485,7 +567,6 @@ static void samples_dump(
 	fprintf(fp, "\n");
 
 	fprintf(fp, "Ticks:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
-	
 	for (i = 0; i < n; i++)
 		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
 	fprintf(fp, "\n");
@@ -511,7 +592,7 @@ static void samples_dump(
 				double duration =
 					duration_round(sdi->time_delta);
 				fprintf(fp,",%f",
-					(duration == 0.0) ? 0.0 : 
+					(duration == 0.0) ? 0.0 :
 					100.0 * (double)sdi->delta /
 					(duration * (double)nr_ticks));
 			} else
@@ -577,7 +658,6 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 
 	info->hash_next = cpu_info_hash[hash];
 	cpu_info_hash[hash] = info;
-	
 	return info;
 }
 
@@ -806,6 +886,8 @@ static void cpu_stat_diff(
 					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, time_now);
 					found->info->total += cs->delta;
+					found->info->utotal += cs->udelta;
+					found->info->stotal += cs->sdelta;
 				}
 			} else {
 				cs->delta = cs->udelta = cs->sdelta = 0;
@@ -822,19 +904,8 @@ static void cpu_stat_diff(
 	if (!(opt_flags & OPT_QUIET)) {
 		int32_t j = 0;
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
-		char ts[32];
 
-		if (opt_flags & OPT_TIMESTAMP) {
-			struct tm tm;
-
-			get_tm(time_now, &tm);
-			snprintf(ts, sizeof(ts), "  (%2.2d:%2.2d:%2.2d)",
-				tm.tm_hour, tm.tm_min, tm.tm_sec);
-		} else {
-			*ts = '\0';
-		}
-
-		printf("  %%CPU   %%USR   %%SYS   PID   Task%s\n", ts);
+		info_banner_dump(time_now);
 		while (sorted) {
 			double cpu_u_usage =
 				100.0 * (double)sorted->udelta /
@@ -844,29 +915,16 @@ static void cpu_stat_diff(
 				(duration * (double)(nr_ticks));
 			double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 
-			cpu_u_total += cpu_u_usage;
-			cpu_s_total += cpu_s_usage;
-
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
-				if (cpu_t_usage > 0.0) {
-					printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
-						cpu_t_usage, cpu_u_usage,
-						cpu_s_usage,
-						sorted->info->pid,
-						sorted->info->kernel_thread ?
-							"[" : "",
-						sorted->info->cmdline,
-						sorted->info->kernel_thread ?
-							"]" : "");
-				}
+				if (cpu_t_usage > 0.0)
+					info_dump(sorted->udelta, sorted->sdelta,
+						nr_ticks, duration, sorted->info,
+						&cpu_u_total, &cpu_s_total);
 			}
 			sorted = sorted->sorted_usage_next;
 		}
-		if (opt_flags & OPT_TOTAL)
-			printf("%6.2f %6.2f %6.2f Total\n",
-				cpu_u_total + cpu_s_total,
-				cpu_u_total, cpu_s_total);
+		info_total_dump(cpu_u_total, cpu_s_total);
 		printf("\n");
 	}
 }
@@ -942,6 +1000,7 @@ static void show_usage(void)
 		"    rather than per CPU tick\n"
 		" -c get command name from processes comm field\n"
 		" -d strip directory basename off command information\n"
+		" -g show grand total of CPU utilisation stats at end\n"
 		" -i ignore " APP_NAME " in the statistics\n"
 		" -l show long (full) command information\n"
 		" -n specifies number of tasks to display\n"
@@ -963,6 +1022,7 @@ int main(int argc, char **argv)
 	int i;
 	int64_t count = 1, t = 1;
 	int32_t n_lines = -1;
+	uint32_t samples = 0;
 	bool forever = true;
 	double time_start, time_now;
 	struct sigaction new_action;
@@ -970,7 +1030,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdhiln:qr:sSt:Tp:");
+		int c = getopt(argc, argv, "acdghiln:qr:sSt:Tp:");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -982,6 +1042,9 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			opt_flags |= OPT_DIRNAME_STRIP;
+			break;
+		case 'g':
+			opt_flags |= OPT_GRAND_TOTAL;
 			break;
 		case 'h':
 			show_usage();
@@ -1137,9 +1200,12 @@ int main(int argc, char **argv)
 		tmp           = cpu_stats_old;
 		cpu_stats_old = cpu_stats_new;
 		cpu_stats_new = tmp;
+		samples++;
 	}
 
-	samples_dump(csv_results);
+	time_now = gettime_to_double();
+
+	samples_dump(csv_results, time_now - time_start, time_now, samples);
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
 	free(cpu_stats_old);
