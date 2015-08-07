@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <inttypes.h>
 #include <string.h>
 #include <signal.h>
@@ -35,22 +36,28 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <float.h>
 
-#define APP_NAME	"cpustat"
-#define TABLE_SIZE	(2411)		/* Should be a prime */
-#define OPT_QUIET	(0x00000001)
-#define OPT_IGNORE_SELF	(0x00000002)
-#define	OPT_CMD_SHORT	(0x00000004)
-#define OPT_CMD_LONG	(0x00000008)
-#define OPT_CMD_COMM	(0x00000010)
-#define OPT_CMD_ALL	(OPT_CMD_SHORT | OPT_CMD_LONG | OPT_CMD_COMM)
-#define OPT_DIRNAME_STRIP (0x00000020)
-#define OPT_TICKS_ALL	(0x00000040)
-#define OPT_TOTAL	(0x00000080)
-#define OPT_MATCH_PID	(0x00000100)
-#define OPT_TIMESTAMP	(0x00000200)
-#define OPT_GRAND_TOTAL	(0x00000400)
+#define APP_NAME		"cpustat"
+#define TABLE_SIZE		(2411)		/* Should be a prime */
+#define OPT_QUIET		(0x00000001)
+#define OPT_IGNORE_SELF		(0x00000002)
+#define	OPT_CMD_SHORT		(0x00000004)
+#define OPT_CMD_LONG		(0x00000008)
+#define OPT_CMD_COMM		(0x00000010)
+#define OPT_CMD_ALL		(OPT_CMD_SHORT | OPT_CMD_LONG | OPT_CMD_COMM)
+#define OPT_DIRNAME_STRIP	(0x00000020)
+#define OPT_TICKS_ALL		(0x00000040)
+#define OPT_TOTAL		(0x00000080)
+#define OPT_MATCH_PID		(0x00000100)
+#define OPT_TIMESTAMP		(0x00000200)
+#define OPT_GRAND_TOTAL		(0x00000400)
+#define OPT_SAMPLES		(0x00000800)
+#define OPT_DISTRIBUTION	(0x00001000)
 
+/* Histogram specific constants */
+#define MAX_DIVISIONS	(20)
+#define DISTRIBUTION_WIDTH	(40)
 
 #define _VER_(major, minor, patchlevel) \
 	((major * 10000) + (minor * 100) + patchlevel)
@@ -359,7 +366,7 @@ static void OPTIMIZE3 HOT sample_add(
 	sample_delta_list_t *sdl;
 	sample_delta_item_t *sdi;
 
-	if (csv_results == NULL)	/* No need if not request */
+	if (!(opt_flags & OPT_SAMPLES))
 		return;
 
 	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
@@ -548,6 +555,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
+		putchar('\n');
 	}
 
 	if (!filename) {
@@ -603,6 +611,65 @@ static void samples_dump(
 
 	free(sorted_cpu_infos);
 	(void)fclose(fp);
+}
+
+static void samples_distribution(void)
+{
+	sample_delta_list_t *sdl;
+	unsigned long nr_ticks = clock_ticks;
+	unsigned int bucket[MAX_DIVISIONS], max_bucket = 0, valid = 0, i, total = 0;
+	double min = DBL_MAX, max = -DBL_MAX, division, prev;
+
+	if (opt_flags & OPT_TICKS_ALL)
+		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
+
+	memset(bucket, 0, sizeof(bucket));
+
+	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
+		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
+
+		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
+			double val = 100.0 * (double)sdi->delta / nr_ticks;
+			if (val > max)
+				max = val;
+			if (val < min)
+				min = val;
+			valid++;
+		}
+	}
+
+	if (valid <= 1) {
+		printf("Too few samples, cannot compute distribution\n");
+		return;
+	}
+
+	if (max - min == 0.0) {
+		printf("Range is zero, cannot compute distribution\n");
+		return;
+	}
+	division = ((max * 1.000001) - min) / (MAX_DIVISIONS);
+	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
+		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
+
+		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
+			double val = 100.0 * (double)sdi->delta / nr_ticks;
+			int v = floor(val - min) / division;
+			v = v > MAX_DIVISIONS - 1 ? MAX_DIVISIONS -1 : v;
+			bucket[v]++;
+			total++;
+			if (max_bucket < bucket[v])
+				max_bucket = bucket[v];
+		}
+	}
+	printf("Distribution of CPU utilisation (per Task):\n");
+	printf("%% CPU Utilisation   Count   (%%)\n");
+	for (prev = min, i = 0; i < MAX_DIVISIONS; i++, prev += division) {
+		printf("%6.2f - %6.2f  %8u %6.2f\n",
+			prev, prev + division - 0.001,
+			bucket[i],
+			100.0 * (double)bucket[i] / (double)total);
+	}
+	putchar('\n');
 }
 
 /*
@@ -1000,6 +1067,7 @@ static void show_usage(void)
 		"    rather than per CPU tick\n"
 		" -c get command name from processes comm field\n"
 		" -d strip directory basename off command information\n"
+		" -D show distribution of CPU utilisation stats at end\n"
 		" -g show grand total of CPU utilisation stats at end\n"
 		" -i ignore " APP_NAME " in the statistics\n"
 		" -l show long (full) command information\n"
@@ -1030,7 +1098,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdghiln:qr:sSt:Tp:");
+		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -1042,6 +1110,9 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			opt_flags |= OPT_DIRNAME_STRIP;
+			break;
+		case 'D':
+			opt_flags |= (OPT_SAMPLES | OPT_DISTRIBUTION);
 			break;
 		case 'g':
 			opt_flags |= OPT_GRAND_TOTAL;
@@ -1100,6 +1171,7 @@ int main(int argc, char **argv)
 			break;
 		case 'r':
 			csv_results = optarg;
+			opt_flags |= OPT_SAMPLES;
 			break;
 		default:
 			show_usage();
@@ -1206,6 +1278,8 @@ int main(int argc, char **argv)
 	time_now = gettime_to_double();
 
 	samples_dump(csv_results, time_now - time_start, time_now, samples);
+	if (opt_flags & OPT_DISTRIBUTION)
+		samples_distribution();
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
 	free(cpu_stats_old);
