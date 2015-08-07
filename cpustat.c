@@ -54,6 +54,7 @@
 #define OPT_GRAND_TOTAL		(0x00000400)
 #define OPT_SAMPLES		(0x00000800)
 #define OPT_DISTRIBUTION	(0x00001000)
+#define OPT_EXTRA_STATS		(0x00002000)
 
 /* Histogram specific constants */
 #define MAX_DIVISIONS	(20)
@@ -130,6 +131,22 @@ typedef struct sample_delta_list {
 	struct sample_delta_list *next;	/* next item in sample delta list */
 	double 		whence;		/* when the sample was taken */
 } sample_delta_list_t;
+
+typedef struct {
+	double		threshold;
+	double		scale;
+	char 		*suffix;
+} cpu_freq_scale_t;
+
+static cpu_freq_scale_t cpu_freq_scale[] = {
+	{ 1e1,  1e0,  "Hz" },
+	{ 1e4,  1e3,  "KHz" },
+	{ 1e7,  1e6,  "MHz" },
+	{ 1e10, 1e9,  "GHz" },
+	{ 1e13, 1e12, "THz" },
+	{ 1e16, 1e15, "PHz" },
+	{ -1.0, -1.0,  NULL }
+};
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
 static cpu_info_t *cpu_info_hash[TABLE_SIZE];
@@ -525,7 +542,7 @@ static void samples_dump(
 	double first_time = -1.0;
 
 	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
+		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	if ((sorted_cpu_infos =
 	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
@@ -613,6 +630,10 @@ static void samples_dump(
 	(void)fclose(fp);
 }
 
+/*
+ *  samples_distribution()
+ *	show distribution of CPU utilisation
+ */
 static void samples_distribution(void)
 {
 	sample_delta_list_t *sdl;
@@ -621,7 +642,7 @@ static void samples_distribution(void)
 	double min = DBL_MAX, max = -DBL_MAX, division, prev;
 
 	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
+		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	memset(bucket, 0, sizeof(bucket));
 
@@ -935,7 +956,7 @@ static void cpu_stat_diff(
 	unsigned long nr_ticks = clock_ticks;
 
 	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_CONF);
+		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
@@ -992,7 +1013,6 @@ static void cpu_stat_diff(
 			sorted = sorted->sorted_usage_next;
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		printf("\n");
 	}
 }
 
@@ -1055,6 +1075,172 @@ static void get_cpustats(
 }
 
 /*
+ *  cpu_freq_average()
+ *	get averagr CPU frequency
+ */
+static double cpu_freq_average(void)
+{
+	struct dirent **cpu_list;
+	int i, n_cpus, n = 0;
+	double total_freq = 0;
+
+	n_cpus = scandir("/sys/devices/system/cpu", &cpu_list, NULL, alphasort);
+	if (n_cpus < 1)
+		return 0.0;
+
+	for (i = 0; i < n_cpus; i++) {
+		char *name = cpu_list[i]->d_name;
+
+		if (!strncmp(name, "cpu", 3) && isdigit(name[3])) {
+			char path[PATH_MAX];
+			FILE *fp;
+
+			snprintf(path, sizeof(path),
+				"/sys/devices/system/cpu/%s/cpufreq/scaling_cur_freq",
+				name);
+			fp = fopen(path, "r");
+			if (fp) {
+				uint64_t freq;
+				if (fscanf(fp, "%" SCNu64, &freq) == 1) {
+					total_freq += (double)freq * 1000.0;
+					n++;
+				}
+				(void)fclose(fp);
+			}
+		}
+		free(cpu_list[i]);
+	}
+	free(cpu_list);
+
+	return n > 0 ? total_freq / n : 0.0;
+}
+
+
+/*
+ *  cpu_freq_format()
+ *	scale cpu freq into a human readable form
+ */
+static const char *cpu_freq_format(double freq)
+{
+	static char buffer[40];
+	char *suffix = "EHz";
+	double scale = 1e18;
+	size_t i;
+
+	for (i = 0; cpu_freq_scale[i].suffix; i++) {
+		if (freq < cpu_freq_scale[i].threshold) {
+			suffix = cpu_freq_scale[i].suffix;
+			scale = cpu_freq_scale[i].scale;
+			break;
+		}
+	}
+
+	snprintf(buffer, sizeof(buffer), "%.2f %s",
+		freq / scale, suffix);
+
+	return buffer;
+}
+
+/*
+ *  get_int32()
+ *	parse an integer, return next non-digit char found
+ */
+static int get_int32(FILE *fp, int32_t *val)
+{
+	bool gotdigit = false;
+	int ch;
+
+	*val = 0;
+
+	while ((ch = fgetc(fp)) != EOF) {
+		if (isdigit(ch)) {
+			gotdigit = true;
+			*val = ((*val) * 10) + (ch - '0');
+		} else
+			break;
+	}
+	if (!gotdigit)
+		*val = -1;
+	return ch;
+}
+
+/*
+ *  cpus_online()
+ *	determine number of CPUs online
+ */
+static char *cpus_online(void)
+{
+	FILE *fp;
+	static char buffer[16];
+	uint32_t cpus = 0;
+
+	fp = fopen("/sys/devices/system/cpu/online", "r");
+	if (!fp)
+		return "unknown";
+
+	for (;;) {
+		int ch;
+		int32_t n1;
+
+		ch = get_int32(fp, &n1);
+		if (ch == '-') {
+			int32_t n2;
+
+			ch = get_int32(fp, &n2);
+			if (n2 > -1) {
+				uint32_t range = n2 - n1 + 1;
+				if (range > 0)
+					cpus += range;
+			}
+			n1 = -1;
+			/* next char must bte EOF or , */
+		}
+		if (ch == EOF || ch == '\n') {
+			if (n1 > -1)
+				cpus++;
+			break;
+		}
+		if (ch == ',') {
+			if (n1 > -1)
+				cpus++;
+			continue;
+		} 
+		fclose(fp);
+		return "unknown";
+	}
+	fclose(fp);
+	snprintf(buffer, sizeof(buffer), "%" PRId32, cpus);
+
+	return buffer;
+}
+
+/*
+ *  load_average()
+ *	get current load average stats
+ */
+static char *load_average(void)
+{
+	static char buffer[40];
+	FILE *fp;
+	
+	fp = fopen("/proc/loadavg", "r");
+	if (fp) {
+		float l1, l5, l10;
+		int ret;
+
+		ret = fscanf(fp, "%f %f %f", &l1, &l5, &l10);
+		(void)fclose(fp);
+
+		if (ret == 3) {
+			snprintf(buffer, sizeof(buffer),
+				"%.2f %.2f %.2f", l1, l5, l10);
+			return buffer;
+		}
+	}
+	return "unknown";
+}
+
+/*
  *  show_usage()
  *	show how to use
  */
@@ -1080,7 +1266,8 @@ static void show_usage(void)
 		" -S timestamp output\n"
 		" -t specifies a task tick count threshold where samples less\n"
                 "    than this are ignored\n"
-		" -T show total CPU utilisation statistics\n");
+		" -T show total CPU utilisation statistics\n"
+		" -x show extra stats (load average, avg cpu freq, etc)\n");
 }
 
 int main(int argc, char **argv)
@@ -1098,7 +1285,7 @@ int main(int argc, char **argv)
 	clock_ticks = sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:");
+		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -1172,6 +1359,9 @@ int main(int argc, char **argv)
 		case 'r':
 			csv_results = optarg;
 			opt_flags |= OPT_SAMPLES;
+			break;
+		case 'x':
+			opt_flags |= OPT_EXTRA_STATS;
 			break;
 		default:
 			show_usage();
@@ -1265,6 +1455,15 @@ int main(int argc, char **argv)
 		duration = duration_round(right_now - time_now);
 		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
+
+		if (opt_flags & OPT_EXTRA_STATS) {
+			double avg_cpu_freq = cpu_freq_average();
+			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
+				load_average(),
+				cpu_freq_format(avg_cpu_freq),
+				cpus_online());
+		}
+
 		cpu_stat_diff(duration, n_lines, time_now,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
@@ -1273,6 +1472,8 @@ int main(int argc, char **argv)
 		cpu_stats_old = cpu_stats_new;
 		cpu_stats_new = tmp;
 		samples++;
+
+		putchar('\n');
 	}
 
 	time_now = gettime_to_double();

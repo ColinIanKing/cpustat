@@ -90,6 +90,9 @@ ignore samples where the CPU usage delta per second less than the given threshol
 .TP
 .B \-T
 calculate total CPU utilisation.
+.TP
+.B \-x
+show extra CPU related statistics, namely: CPU load average over 1, 5 and 10 minutes, CPU frequency (average of all online CPU frequencies), number of CPUs online.
 .SH EXAMPLES
 .LP
 Dump CPU stats every second until stopped.
@@ -107,8 +110,8 @@ Dump CPU stats every 10 seconds just 5 times.
 sudo cpustat 10 5
 .RE
 .SH SEE ALSO
-.BR eventstat (8)
-.BR powertop (8)
+.BR eventstat (8),
+.BR powertop (8),
 .BR vmstat (8)
 .SH AUTHOR
 cpustat was written by Colin King <colin.king@canonical.com>
