@@ -99,6 +99,8 @@ typedef struct cpu_info_t {
 	char		*ident;		/* Pid + comm identifier */
 	pid_t		pid;		/* Process ID */
 	bool		kernel_thread;	/* true if a kernel thread */
+	int		processor;	/* Last CPU run on */
+	char		state;		/* Run state */
 } cpu_info_t;
 
 /* CPU utilisation stats */
@@ -146,6 +148,22 @@ static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e13, 1e12, "THz" },
 	{ 1e16, 1e15, "PHz" },
 	{ -1.0, -1.0,  NULL }
+};
+
+/* scaling factor */
+typedef struct {
+	const char ch;			/* Scaling suffix */
+	const uint64_t scale;		/* Amount to scale by */
+} scale_t;
+
+static const scale_t second_scales[] = {
+	{ 's',	1 },
+	{ 'm',	60 },
+	{ 'h',  3600 },
+	{ 'd',  24 * 3600 },
+	{ 'w',  7 * 24 * 3600 },
+	{ 'y',  365 * 24 * 3600 },
+	{ ' ',  INT64_MAX },
 };
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
@@ -215,6 +233,24 @@ static const int signals[] = {
 #endif
 	-1,
 };
+
+/*
+ *  secs_to_str()
+ *	report seconds in different units.
+ */
+static const char *secs_to_str(const double secs)
+{
+	static char buf[16];
+	int i;
+
+	for (i = 0; i < 5; i++) {
+		if (secs <= second_scales[i + 1].scale)
+			break;
+	}
+	snprintf(buf, sizeof(buf), "%5.2f%c",
+		secs / second_scales[i].scale, second_scales[i].ch);
+	return buf;
+}
 
 
 /*
@@ -480,7 +516,7 @@ static void info_banner_dump(const double time_now)
 	} else {
 		*ts = '\0';
 	}
-	printf("  %%CPU   %%USR   %%SYS   PID   Task%s\n", ts);
+	printf("  %%CPU   %%USR   %%SYS   PID S  CPU   Time Task%s\n", ts);
 }
 
 /*
@@ -499,14 +535,18 @@ static void info_dump(
 	const double total_ticks = (double)ticks * duration;
 	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
 	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
+	double cpu_time = ((double)(info->utotal + info->stotal)) / total_ticks;
 
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	printf("%6.2f %6.2f %6.2f %5d %s%s%s\n",
+	printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
 		cpu_u_usage + cpu_s_usage,
 		cpu_u_usage, cpu_s_usage,
 		info->pid,
+		info->state,
+		info->processor,
+		secs_to_str(cpu_time),
 		info->kernel_thread ?
 			"[" : "",
 		info->cmdline,
@@ -731,6 +771,8 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	}
 
 	info->ident = strdup(new_info->ident);
+	info->state = new_info->state;
+	info->processor = new_info->processor;
 
 	if (info->comm == NULL ||
 	    info->cmdline == NULL ||
@@ -847,8 +889,10 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	const double time_now,		/* time sample was taken */
 	const pid_t pid,		/* PID of task */
 	const char *comm,		/* Name of task */
+	const char state,		/* State field */
 	const uint64_t utime,
-	const uint64_t stime)
+	const uint64_t stime,
+	const int processor)
 {
 	char ident[1024];
 	cpu_stat_t *cs;
@@ -865,6 +909,8 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		if (strcmp(cs->info->ident, ident) == 0) {
 			cs->utime += utime;
 			cs->stime += stime;
+			cs->info->state = state;
+			cs->info->processor = processor;
 			return;
 		}
 	}
@@ -888,6 +934,8 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	info.cmdline = get_pid_cmdline(pid);
 	info.kernel_thread = (info.cmdline == NULL);
 	info.ident = ident;
+	info.processor = processor;
+	info.state = state;
 
 	cs_new->utime = utime;
 	cs_new->stime = stime;
@@ -1042,10 +1090,11 @@ static void get_cpustats(
 		char filename[PATH_MAX];
 		FILE *fp;
 		char comm[20];
+		char state;
 		pid_t pid;
 		uint64_t utime;
 		uint64_t stime;
-		int n;
+		int n, processor;
 
 		if (!isdigit(entry->d_name[0]))
 			continue;
@@ -1056,9 +1105,14 @@ static void get_cpustats(
 			continue;
 
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		n = fscanf(fp, "%8d (%20[^)]) %*c %*d %*d %*d %*d %*d "
-				"%*u %*u %*u %*u %*u %20" SCNu64 "%20" SCNu64,
-			&pid, comm, &utime, &stime);
+		n = fscanf(fp, "%8d (%20[^)]) %c %*d %*d %*d %*d %*d "
+				"%*u %*u %*u %*u %*u %20" SCNu64 "%20" SCNu64
+				"%*d %*d %*d %*d %*d %*d "
+				"%*u %*u %*d %*u %*u %*u "
+				"%*u %*u %*u %*u %*u "
+				"%*u %*u %*u %*u %*u "
+				"%*d %d",
+			&pid, comm, &state, &utime, &stime, &processor);
 		(void)fclose(fp);
 
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
@@ -1066,9 +1120,9 @@ static void get_cpustats(
 		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != pid))
 			continue;
 
-		if (n == 4)
+		if (n == 6)
 			cpu_stat_add(cpu_stats, time_now, pid, comm,
-				utime, stime);
+				state, utime, stime, processor);
 	}
 
 	(void)closedir(dir);
