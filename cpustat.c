@@ -94,6 +94,7 @@ typedef struct cpu_info_t {
 	uint64_t	utotal;		/* Usr Space total CPU ticks */
 	uint64_t	stotal;		/* Sys Space total CPU ticks */
 	uint64_t	total;		/* Total number of CPU ticks */
+	uint64_t	ticks;		/* Total life time in CPU ticks */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
 	char		*ident;		/* Pid + comm identifier */
@@ -535,7 +536,7 @@ static void info_dump(
 	const double total_ticks = (double)ticks * duration;
 	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
 	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
-	double cpu_time = ((double)(info->utotal + info->stotal)) / total_ticks;
+	double cpu_time = ((double)(info->ticks)) / clock_ticks;
 
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
@@ -1024,6 +1025,7 @@ static void cpu_stat_diff(
 					found->info->total += cs->delta;
 					found->info->utotal += cs->udelta;
 					found->info->stotal += cs->sdelta;
+					found->info->ticks = cs->utime + cs->stime;
 				}
 			} else {
 				cs->delta = cs->udelta = cs->sdelta = 0;
