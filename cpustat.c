@@ -1343,11 +1343,11 @@ static char *cpus_online(void)
  */
 static char *load_average(void)
 {
-	static char buffer[40];
 	FILE *fp;
 	
 	fp = fopen("/proc/loadavg", "r");
 	if (fp) {
+		static char buffer[64];
 		float l1, l5, l10;
 		int ret;
 
