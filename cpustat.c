@@ -1538,6 +1538,10 @@ int main(int argc, char **argv)
 	}
 	proc_stat_old = alloca(sizeof(proc_stat_t));
 	proc_stat_new = alloca(sizeof(proc_stat_t));
+	if (proc_stat_old == NULL || proc_stat_new == NULL) {
+		fprintf(stderr, "Cannot allocate proc statistics tables\n");
+		exit(EXIT_FAILURE);
+	}
 
 	time_now = time_start = gettime_to_double();
 
