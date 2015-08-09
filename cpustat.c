@@ -104,6 +104,15 @@ typedef struct cpu_info_t {
 	char		state;		/* Run state */
 } cpu_info_t;
 
+/* system wide CPU stats */
+typedef struct {
+	uint64_t	ctxt;
+	uint64_t	irq;
+	uint64_t	softirq;
+	uint64_t	running;
+	uint64_t	blocked;
+} proc_stat_t;
+
 /* CPU utilisation stats */
 typedef struct cpu_stat {
 	struct cpu_stat *next;		/* Next cpu stat in hash table */
@@ -995,6 +1004,7 @@ static void OPTIMIZE3 HOT cpu_stat_sort_freq_add(
  */
 static void cpu_stat_diff(
 	const double duration,			/* time between each sample */
+	unsigned long nr_ticks,			/* ticks per second */
 	const int32_t n_lines,			/* number of lines to output */
 	const double time_now,			/* time right now */
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
@@ -1002,10 +1012,6 @@ static void cpu_stat_diff(
 {
 	int i;
 	cpu_stat_t *sorted = NULL;
-	unsigned long nr_ticks = clock_ticks;
-
-	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
@@ -1066,6 +1072,60 @@ static void cpu_stat_diff(
 	}
 }
 
+/*
+ * get_proc_stat
+ *	read /proc/stat
+ */
+static int get_proc_stat(proc_stat_t *proc_stat)
+{
+	FILE *fp;
+	char buffer[4096];
+
+	memset(proc_stat, 0, sizeof(proc_stat_t));
+
+	fp = fopen("/proc/stat", "r");
+	if (!fp) {
+		return -1;
+	}
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (!strncmp(buffer, "intr ", 5)) {
+			sscanf(buffer + 5, "%" SCNu64, &proc_stat->irq);
+		} else if (!strncmp(buffer, "softirq ", 8)) {
+			sscanf(buffer + 8, "%" SCNu64, &proc_stat->softirq);
+		} else if (!strncmp(buffer, "ctxt ", 5)) {
+			sscanf(buffer + 5, "%" SCNu64, &proc_stat->ctxt);
+		} else if (!strncmp(buffer, "procs_running ", 14)) {
+			sscanf(buffer + 14, "%" SCNu64, &proc_stat->running);
+		} else if (!strncmp(buffer, "procs_blocked ", 14)) {
+			sscanf(buffer + 14, "%" SCNu64, &proc_stat->blocked);
+		}
+	}
+	fclose(fp);
+	return 0;
+}
+
+static void proc_stat_diff(
+	const proc_stat_t *old,
+	const proc_stat_t *new,
+	proc_stat_t *delta)
+{
+	delta->ctxt = new->ctxt - old->ctxt;
+	delta->irq = new->irq - old->irq;
+	delta->softirq = new->softirq - old->softirq;
+	delta->running = new->running;
+	delta->blocked = new->blocked;
+}
+
+static void proc_stat_dump(const proc_stat_t *delta)
+{
+	printf("%" PRIu64 " Ctxt/s, %" PRIu64 " IRQ/s, %" PRIu64 " softIRQ/s, "
+		"%" PRIu64 " running, %" PRIu64 " blocked\n",
+		delta->ctxt,
+		delta->irq,
+		delta->softirq,
+		delta->running,
+		delta->blocked);
+}
 
 /*
  *  get_cpustats()
@@ -1328,7 +1388,7 @@ static void show_usage(void)
 
 int main(int argc, char **argv)
 {
-	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **tmp;
+	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **cpu_stats_tmp;
 	double duration_secs = 1.0;
 	int i;
 	int64_t count = 1, t = 1;
@@ -1337,8 +1397,12 @@ int main(int argc, char **argv)
 	bool forever = true;
 	double time_start, time_now;
 	struct sigaction new_action;
+	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
+	unsigned long nr_ticks;
 
-	clock_ticks = sysconf(_SC_CLK_TCK);
+	nr_ticks = clock_ticks = sysconf(_SC_CLK_TCK);
+	if (opt_flags & OPT_TICKS_ALL)
+		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	for (;;) {
 		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
@@ -1472,10 +1536,13 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
 	}
+	proc_stat_old = alloca(sizeof(proc_stat_t));
+	proc_stat_new = alloca(sizeof(proc_stat_t));
 
 	time_now = time_start = gettime_to_double();
 
 	get_cpustats(cpu_stats_old, time_now);
+	get_proc_stat(proc_stat_old);
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
@@ -1511,22 +1578,29 @@ int main(int argc, char **argv)
 		duration = duration_round(right_now - time_now);
 		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
+		get_proc_stat(proc_stat_new);
 
+		proc_stat_diff(proc_stat_old, proc_stat_new, &proc_stat_delta);
 		if (opt_flags & OPT_EXTRA_STATS) {
 			double avg_cpu_freq = cpu_freq_average();
 			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
 				cpus_online());
+			proc_stat_dump(&proc_stat_delta);
 		}
 
-		cpu_stat_diff(duration, n_lines, time_now,
+		cpu_stat_diff(duration, nr_ticks, n_lines, time_now,
 			cpu_stats_old, cpu_stats_new);
 		cpu_stat_free_contents(cpu_stats_old);
 
-		tmp           = cpu_stats_old;
+		cpu_stats_tmp = cpu_stats_old;
 		cpu_stats_old = cpu_stats_new;
-		cpu_stats_new = tmp;
+		cpu_stats_new = cpu_stats_tmp;
+
+		proc_stat_tmp = proc_stat_old;
+		proc_stat_old = proc_stat_new;
+		proc_stat_new = proc_stat_tmp;
 		samples++;
 
 		putchar('\n');
