@@ -1228,7 +1228,7 @@ static double cpu_freq_average(void)
 	}
 	free(cpu_list);
 
-	return n > 0 ? total_freq / n : 0.0;
+	return n > 0 ? total_freq / (double)n : 0.0;
 }
 
 
