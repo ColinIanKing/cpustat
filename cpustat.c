@@ -1073,7 +1073,7 @@ static void cpu_stat_diff(
 }
 
 /*
- * get_proc_stat
+ *  get_proc_stat()
  *	read /proc/stat
  */
 static int get_proc_stat(proc_stat_t *proc_stat)
@@ -1104,7 +1104,11 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 	return 0;
 }
 
-static void proc_stat_diff(
+/*
+ *  proc_stat_diff()
+ *	compute delta between last proc_stat sample
+ */
+static inline void proc_stat_diff(
 	const proc_stat_t *old,
 	const proc_stat_t *new,
 	proc_stat_t *delta)
@@ -1116,7 +1120,11 @@ static void proc_stat_diff(
 	delta->blocked = new->blocked;
 }
 
-static void proc_stat_dump(const proc_stat_t *delta)
+/*
+ *  proc_stat_dump()
+ *	dump out proc_stat stats
+ */
+static inline void proc_stat_dump(const proc_stat_t *delta)
 {
 	printf("%" PRIu64 " Ctxt/s, %" PRIu64 " IRQ/s, %" PRIu64 " softIRQ/s, "
 		"%" PRIu64 " running, %" PRIu64 " blocked\n",
@@ -1230,7 +1238,6 @@ static double cpu_freq_average(void)
 
 	return n > 0 ? total_freq / (double)n : 0.0;
 }
-
 
 /*
  *  cpu_freq_format()
