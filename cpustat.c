@@ -1026,7 +1026,8 @@ static void cpu_stat_diff(
 				cs->time_delta = cs->time - found->time;
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = true;
-					cpu_stat_sort_freq_add(&sorted, cs);
+					if (cs->udelta + cs->sdelta > 0)
+						cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, time_now);
 					found->info->total += cs->delta;
 					found->info->utotal += cs->udelta;
@@ -1038,7 +1039,6 @@ static void cpu_stat_diff(
 				cs->time_delta = duration;
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = false;
-					cpu_stat_sort_freq_add(&sorted, cs);
 					sample_add(cs, time_now);
 				}
 			}
