@@ -23,12 +23,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
 #include <signal.h>
-#include <unistd.h>
 #include <time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -37,6 +38,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <float.h>
+#include <fcntl.h>
 
 #define APP_NAME		"cpustat"
 #define TABLE_SIZE		(2411)		/* Should be a prime */
@@ -144,6 +146,14 @@ typedef struct sample_delta_list {
 	double 		whence;		/* when the sample was taken */
 } sample_delta_list_t;
 
+/* hash of cmdline comm info */
+typedef struct pid_info {
+	struct pid_info *next;
+	struct timespec st_ctim;
+	pid_t	pid;
+	char	*cmdline;
+} pid_info_t;
+
 typedef struct {
 	double		threshold;
 	double		scale;
@@ -180,6 +190,8 @@ static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
 static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 					/* hash of cpu_info */
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
+static pid_info_t *pid_info_hash[TABLE_SIZE];
+					/* Hash of cmdline info */
 static size_t cpu_info_list_length;	/* cpu_info_list length */
 static sample_delta_list_t *sample_delta_list_head;
 static sample_delta_list_t *sample_delta_list_tail;
@@ -350,18 +362,33 @@ static unsigned int count_bits(const unsigned int val)
 static char *get_pid_cmdline(const pid_t pid)
 {
 	static char buffer[4096];
-	char *ptr;
+	char *ptr = NULL;
 	int fd;
 	ssize_t ret;
+	pid_info_t *info;
+	int h = pid % TABLE_SIZE;
+	char path[PATH_MAX];
+	struct stat statbuf;
+	bool statok = false;
 
-	snprintf(buffer, sizeof(buffer), "/proc/%i/cmdline", pid);
-
-	if ((fd = open(buffer, O_RDONLY)) < 0)
-		return NULL;
-
+	snprintf(path, sizeof(path), "/proc/%u", pid);
+	if (stat(path, &statbuf) >= 0) {
+		statok = true;
+		for (info = pid_info_hash[h]; info; info = info->next) {
+			if (info->pid == pid) {
+				if (statbuf.st_ctim.tv_sec > info->st_ctim.tv_sec)
+					break;
+				
+				return info->cmdline;
+			}
+		}
+	}
+	snprintf(path, sizeof(path), "/proc/%i/cmdline", pid);
+	if ((fd = open(path, O_RDONLY)) < 0)
+		goto no_cmd;
 	if ((ret = read(fd, buffer, sizeof(buffer))) <= 0) {
 		(void)close(fd);
-		return NULL;
+		goto no_cmd;
 	}
 	(void)close(fd);
 
@@ -390,9 +417,45 @@ static char *get_pid_cmdline(const pid_t pid)
 	}
 
 	if (opt_flags & OPT_DIRNAME_STRIP)
-		return basename(buffer);
+		ptr = basename(buffer);
+	else
+		ptr = buffer;
 
-	return buffer;
+no_cmd:
+	if (statok) {
+		info = calloc(1, sizeof(pid_info_t));
+		if (info) {
+			info->pid = pid;
+			info->cmdline = ptr;
+			info->next = pid_info_hash[h];
+			info->st_ctim = statbuf.st_ctim;
+			pid_info_hash[h] = info;
+		}
+	}
+
+	return ptr;
+
+}
+
+/*
+ *  pid_info_hash_free()
+	free pid_info hash table
+ *
+ */
+void pid_info_hash_free(void)
+{
+	size_t i;
+
+	for (i = 0; i < TABLE_SIZE; i++) {
+		pid_info_t *info = pid_info_hash[i];
+
+		while (info) {
+			pid_info_t *next = info->next;
+
+			free(info);
+			info = next;
+		}
+	}
 }
 
 /*
@@ -1503,7 +1566,7 @@ int main(int argc, char **argv)
 
 	if (optind < argc) {
 		duration_secs = atof(argv[optind++]);
-		if (duration_secs < 0.5) {
+		if (duration_secs < 0.1) {
 			fprintf(stderr, "Duration must 0.5 or more\n");
 			exit(EXIT_FAILURE);
 		}
@@ -1629,6 +1692,7 @@ int main(int argc, char **argv)
 	samples_free();
 	cpu_info_list_free();
 	cpu_stat_list_free();
+	pid_info_hash_free();
 
 	exit(EXIT_SUCCESS);
 }
