@@ -27,8 +27,51 @@ cpustat \- a tool to measure CPU utilization.
 
 .SH DESCRIPTION
 cpustat is a program that dumps the CPU utilization of current
-running tasks.
-
+running tasks.  Statisics are based on snapshots of processes in the system
+and may not be entirely accurate if many short lived processes exist in
+a time shorter than the sample time.  cpustat is useful to gain understanding
+of long lived process activity in a system, such as daemons, kernel threads, and general user processes.
+.P
+For each running task that has consumed some CPU during the sample time, the
+following information is displayed:
+.TS
+center;
+lBw(10) lBw(50)
+l l.
+Heading	T{
+Description
+T}
+%CPU	T{
+Total CPU used (in percent)
+T}
+%USR	T{
+CPU used in user space (in percent)
+T}
+%SYS	T{
+CPU used in system (kernel) space (in percent)
+T}
+PID	T{
+Process ID
+T}
+S	T{
+Process State, R (Running), S (Sleeping), D (Waiting, Disk Sleep), T (Stopped), t (Tracing stopped), W (Paging), X (Dead), x (Dead), K (Wakekill), W (Waking), P (Parked).
+T}
+CPU	T{
+CPU used by the process at time of sampling.
+T}
+Time	T{
+Total CPU time used by the process since it started.
+T}
+Task	T{
+Process command line information (from process cmdline or comm fields)
+T}
+.TE
+.P
+cpustat was designed to try and minimize the CPU overhead of performing the
+actual process statistics gathering. It is ideal for small embedded devices where
+CPU is limited and measuring CPU utilisation can actually affect the overall
+CPU statistics. For this reason, it is not as complex as tools such as top
+that have a more feature rich user interface and wider functionality.
 .SH OPTIONS
 cpustat options are as follow:
 .TP
@@ -45,10 +88,11 @@ get command information from process comm field.
 strip directory basename off command information.
 .TP
 .B \-D
-compute and show the distribution of CPU utilisation. This breaks the CPU utilisation
-of each task into 20 ranges from minimum to the maximum and shows the count of tasks
-found at in that paricular utilisation range.  Useful to see any outliers and to
-characterize the typical per task usage of the CPU.
+compute and show the distribution of CPU utilisation by task and by CPU.
+.br
+By task, this breaks the CPU utilisation of each task into 20 ranges from minimum to the maximum and shows the count of tasks found at in that paricular utilisation range.  Useful to see any outliers and to characterize the typical per task usage of the CPU.
+.br
+By CPU, this shows the user and system CPU utilisation by per CPU.
 .TP
 .B \-g
 show grand total of CPU utilisation statistics at the end of the run. This is the

@@ -378,7 +378,6 @@ static char *get_pid_cmdline(const pid_t pid)
 			if (info->pid == pid) {
 				if (statbuf.st_ctim.tv_sec > info->st_ctim.tv_sec)
 					break;
-				
 				return info->cmdline;
 			}
 		}
@@ -737,6 +736,48 @@ static void samples_dump(
 	free(sorted_cpu_infos);
 	(void)fclose(fp);
 }
+
+/*
+ *  cpu_distribution()
+ *	CPU distribution()
+ */
+static void cpu_distribution(
+	const double duration,
+	unsigned long nr_ticks)
+{
+	cpu_info_t *cpu_info;
+	int i, cpu_max = -1;
+	uint64_t *utotal, *stotal;
+	double total_ticks = duration * (double)nr_ticks;
+
+	for (cpu_info = cpu_info_list; cpu_info;
+	     cpu_info = cpu_info->list_next)
+		if (cpu_info->processor > cpu_max)
+			cpu_max = cpu_info->processor;
+
+	cpu_max++;
+
+	utotal = alloca(cpu_max * sizeof(*utotal));
+	stotal = alloca(cpu_max * sizeof(*stotal));
+
+	memset(utotal, 0, cpu_max * sizeof(*utotal));
+	memset(stotal, 0, cpu_max * sizeof(*stotal));
+
+	for (cpu_info = cpu_info_list; cpu_info;
+	     cpu_info = cpu_info->list_next) {
+		int cpu = cpu_info->processor;
+		utotal[cpu] += cpu_info->utotal;
+		stotal[cpu] += cpu_info->stotal;
+	}
+	printf("Distribution of CPU utilisation (per CPU):\n");
+	printf(" CPU#   USR%%   SYS%%\n");
+	for (i = 0; i < cpu_max; i++)
+		printf("%5d %6.2f %6.2f\n",
+			i,
+			100.0 * (double)utotal[i] / total_ticks,
+			100.0 * (double)stotal[i] / total_ticks);
+}
+
 
 /*
  *  samples_distribution()
@@ -1398,7 +1439,7 @@ static char *cpus_online(void)
 static char *load_average(void)
 {
 	FILE *fp;
-	
+
 	fp = fopen("/proc/loadavg", "r");
 	if (fp) {
 		static char buffer[64];
@@ -1674,8 +1715,10 @@ int main(int argc, char **argv)
 	time_now = gettime_to_double();
 
 	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, samples);
-	if (opt_flags & OPT_DISTRIBUTION)
+	if (opt_flags & OPT_DISTRIBUTION) {
 		samples_distribution(nr_ticks);
+		cpu_distribution(time_now - time_start, nr_ticks);
+	}
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
 	free(cpu_stats_old);
