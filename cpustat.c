@@ -108,11 +108,11 @@ typedef struct cpu_info_t {
 
 /* system wide CPU stats */
 typedef struct {
-	uint64_t	ctxt;
-	uint64_t	irq;
-	uint64_t	softirq;
-	uint64_t	running;
-	uint64_t	blocked;
+	uint64_t	ctxt;		/* Context switches */
+	uint64_t	irq;		/* IRQ count */
+	uint64_t	softirq;	/* Soft IRQ count */
+	uint64_t	running;	/* Number of processes running */
+	uint64_t	blocked;	/* Number of processes blocked */
 } proc_stat_t;
 
 /* CPU utilisation stats */
@@ -148,16 +148,16 @@ typedef struct sample_delta_list {
 
 /* hash of cmdline comm info */
 typedef struct pid_info {
-	struct pid_info *next;
-	struct timespec st_ctim;
-	pid_t	pid;
-	char	*cmdline;
+	struct pid_info *next;		/* next pid_info in list */
+	struct timespec st_ctim;	/* time of process creation */
+	pid_t	pid;			/* process ID */
+	char	*cmdline;		/* process command line */
 } pid_info_t;
 
 typedef struct {
-	double		threshold;
-	double		scale;
-	char 		*suffix;
+	double		threshold;	/* scaling threashold */
+	double		scale;		/* scaling value */
+	char 		*suffix;	/* Human Hz scale factor */
 } cpu_freq_scale_t;
 
 static cpu_freq_scale_t cpu_freq_scale[] = {
@@ -624,6 +624,10 @@ static void info_dump(
 			"]" : "");
 }
 
+/*
+ *  info_total_dump()
+ *	dump out totals of total, system and user times
+ */
 static void info_total_dump(
 	const double u_total,
 	const double s_total)
