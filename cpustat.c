@@ -432,9 +432,7 @@ no_cmd:
 			pid_info_hash[h] = info;
 		}
 	}
-
 	return ptr;
-
 }
 
 /*
@@ -644,6 +642,7 @@ static void samples_dump(
 	const char *const filename,	/* file to dump samples */
 	const double duration,		/* duration in seconds */
 	const double time_now,		/* time right now */
+	const unsigned long nr_ticks,	/* number of ticks per sec */
 	const uint32_t samples)		/* number of samples */
 {
 	sample_delta_list_t	*sdl;
@@ -651,11 +650,7 @@ static void samples_dump(
 	cpu_info_t *cpu_info;
 	size_t i = 0, n;
 	FILE *fp;
-	unsigned long nr_ticks = clock_ticks;
 	double first_time = -1.0;
-
-	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	if ((sorted_cpu_infos =
 	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
@@ -747,15 +742,11 @@ static void samples_dump(
  *  samples_distribution()
  *	show distribution of CPU utilisation
  */
-static void samples_distribution(void)
+static void samples_distribution(const unsigned long nr_ticks)
 {
 	sample_delta_list_t *sdl;
-	unsigned long nr_ticks = clock_ticks;
 	unsigned int bucket[MAX_DIVISIONS], max_bucket = 0, valid = 0, i, total = 0;
 	double min = DBL_MAX, max = -DBL_MAX, division, prev;
-
-	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
 
 	memset(bucket, 0, sizeof(bucket));
 
@@ -1682,9 +1673,9 @@ int main(int argc, char **argv)
 
 	time_now = gettime_to_double();
 
-	samples_dump(csv_results, time_now - time_start, time_now, samples);
+	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, samples);
 	if (opt_flags & OPT_DISTRIBUTION)
-		samples_distribution();
+		samples_distribution(nr_ticks);
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
 	free(cpu_stats_old);
