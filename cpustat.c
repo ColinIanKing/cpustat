@@ -318,7 +318,6 @@ static inline double timeval_to_double(const struct timeval *const tv)
 	return (double)tv->tv_sec + ((double)tv->tv_usec / 1000000.0);
 }
 
-
 /*
  *  double_to_timeval
  *	seconds in double to timeval
@@ -758,6 +757,24 @@ static void samples_dump(
 }
 
 /*
+ *  max_processors()
+ *	Determine number of CPUs used
+ */
+static inline int max_processors(void)
+{
+	int cpu_max = 0;
+
+	cpu_info_t *cpu_info;
+
+	for (cpu_info = cpu_info_list; cpu_info;
+	     cpu_info = cpu_info->list_next)
+		if (cpu_info->processor > cpu_max)
+			cpu_max = cpu_info->processor;
+
+	return cpu_max + 1;
+}
+
+/*
  *  cpu_distribution()
  *	CPU distribution()
  */
@@ -766,22 +783,12 @@ static void cpu_distribution(
 	uint64_t nr_ticks)
 {
 	cpu_info_t *cpu_info;
-	int i, cpu_max = -1;
-	uint64_t *utotal, *stotal;
 	double total_ticks = duration * (double)nr_ticks;
+	int i, cpu_max = max_processors();
+	uint64_t utotal[cpu_max], stotal[cpu_max];
 
-	for (cpu_info = cpu_info_list; cpu_info;
-	     cpu_info = cpu_info->list_next)
-		if (cpu_info->processor > cpu_max)
-			cpu_max = cpu_info->processor;
-
-	cpu_max++;
-
-	utotal = alloca(cpu_max * sizeof(*utotal));
-	stotal = alloca(cpu_max * sizeof(*stotal));
-
-	memset(utotal, 0, cpu_max * sizeof(*utotal));
-	memset(stotal, 0, cpu_max * sizeof(*stotal));
+	memset(utotal, 0, sizeof(utotal));
+	memset(stotal, 0, sizeof(stotal));
 
 	for (cpu_info = cpu_info_list; cpu_info;
 	     cpu_info = cpu_info->list_next) {
