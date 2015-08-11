@@ -1480,7 +1480,7 @@ static char *load_average(void)
 		float l1, l5, l10;
 		int ret;
 
-		ret = fscanf(fp, "%f %f %f", &l1, &l5, &l10);
+		ret = fscanf(fp, "%10f %10f %10f", &l1, &l5, &l10);
 		(void)fclose(fp);
 
 		if (ret == 3) {
