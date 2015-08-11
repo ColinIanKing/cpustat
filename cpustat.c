@@ -63,7 +63,8 @@
 #define PROC_STAT_SCN_CTXT	(0x04)
 #define PROC_STAT_SCN_PROCS_RUN	(0x08)
 #define PROC_STAT_SCN_PROCS_BLK	(0x10)
-#define PROC_STAT_SCN_ALL	(0x1f)
+#define PROC_STAT_SCN_PROCS	(0x20)
+#define PROC_STAT_SCN_ALL	(0x3f)
 
 /* Histogram specific constants */
 #define MAX_DIVISIONS		(20)
@@ -118,6 +119,7 @@ typedef struct {
 	uint64_t	ctxt;		/* Context switches */
 	uint64_t	irq;		/* IRQ count */
 	uint64_t	softirq;	/* Soft IRQ count */
+	uint64_t	processes;	/* Number of processes since boot */
 	uint64_t	running;	/* Number of processes running */
 	uint64_t	blocked;	/* Number of processes blocked */
 } proc_stat_t;
@@ -1027,8 +1029,7 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	const int processor)		/* processor it ran on */
 {
 	char ident[1024];
-	cpu_stat_t *cs;
-	cpu_stat_t *cs_new;
+	cpu_stat_t *cs, *cs_new;
 	cpu_info_t info;
 	uint32_t h;
 
@@ -1226,6 +1227,9 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 		} else if (!strncmp(buffer, "procs_blocked ", 14)) {
 			sscanf(buffer + 14, "%" SCNu64, &proc_stat->blocked);
 			got_flags |= PROC_STAT_SCN_PROCS_BLK;
+		} else if (!strncmp(buffer, "processes ", 10)) {
+			sscanf(buffer + 10, "%" SCNu64, &proc_stat->processes);
+			got_flags |= PROC_STAT_SCN_PROCS;
 		}
 		if ((got_flags & PROC_STAT_SCN_ALL) == PROC_STAT_SCN_ALL)
 			break;
@@ -1246,6 +1250,7 @@ static inline void proc_stat_diff(
 	delta->ctxt = new->ctxt - old->ctxt;
 	delta->irq = new->irq - old->irq;
 	delta->softirq = new->softirq - old->softirq;
+	delta->processes = new->processes - old->processes;
 	delta->running = new->running;
 	delta->blocked = new->blocked;
 }
@@ -1257,10 +1262,11 @@ static inline void proc_stat_diff(
 static inline void proc_stat_dump(const proc_stat_t *delta)
 {
 	printf("%" PRIu64 " Ctxt/s, %" PRIu64 " IRQ/s, %" PRIu64 " softIRQ/s, "
-		"%" PRIu64 " running, %" PRIu64 " blocked\n",
+		"%" PRIu64 " new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked\n",
 		delta->ctxt,
 		delta->irq,
 		delta->softirq,
+		delta->processes,
 		delta->running,
 		delta->blocked);
 }
