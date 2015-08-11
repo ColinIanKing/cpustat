@@ -152,6 +152,7 @@ typedef struct sample_delta_item {
 typedef struct sample_delta_list {
 	struct sample_delta_item *sample_delta_item_list;
 	struct sample_delta_list *next;	/* next item in sample delta list */
+	struct sample_delta_list *prev;	/* Previous in the list */
 	double 		whence;		/* when the sample was taken */
 } sample_delta_list_t;
 
@@ -510,11 +511,13 @@ static void OPTIMIZE3 HOT sample_add(
 	if (!(opt_flags & OPT_SAMPLES))
 		return;
 
-	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
+	for (sdl = sample_delta_list_tail; sdl; sdl = sdl->prev) {
 		if (sdl->whence == whence) {
 			found = true;
 			break;
 		}
+		if (sdl->whence < whence)
+			break;
 	}
 
 	/*
@@ -531,6 +534,8 @@ static void OPTIMIZE3 HOT sample_add(
 			sample_delta_list_tail->next = sdl;
 		else
 			sample_delta_list_head = sdl;
+
+		sdl->prev = sample_delta_list_tail;
 		sample_delta_list_tail = sdl;
 	}
 
@@ -817,6 +822,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 	sample_delta_list_t *sdl;
 	unsigned int bucket[MAX_DIVISIONS], max_bucket = 0, valid = 0, i, total = 0;
 	double min = DBL_MAX, max = -DBL_MAX, division, prev;
+	double scale = 100.0 / (double)nr_ticks;
 
 	memset(bucket, 0, sizeof(bucket));
 
@@ -824,7 +830,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
-			double val = 100.0 * (double)sdi->delta / (double)nr_ticks;
+			double val = scale * (double)sdi->delta;
 			if (val > max)
 				max = val;
 			if (val < min)
@@ -1213,22 +1219,22 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 	}
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (!strncmp(buffer, "intr ", 5)) {
-			sscanf(buffer + 5, "%" SCNu64, &proc_stat->irq);
+			proc_stat->irq = (uint64_t)atoll(buffer + 5);
 			got_flags |= PROC_STAT_SCN_IRQ;
 		} else if (!strncmp(buffer, "softirq ", 8)) {
-			sscanf(buffer + 8, "%" SCNu64, &proc_stat->softirq);
+			proc_stat->softirq = (uint64_t)atoll(buffer + 8);
 			got_flags |= PROC_STAT_SCN_SOFTIRQ;
 		} else if (!strncmp(buffer, "ctxt ", 5)) {
-			sscanf(buffer + 5, "%" SCNu64, &proc_stat->ctxt);
+			proc_stat->ctxt = (uint64_t)atoll(buffer + 5);
 			got_flags |= PROC_STAT_SCN_CTXT;
 		} else if (!strncmp(buffer, "procs_running ", 14)) {
-			sscanf(buffer + 14, "%" SCNu64, &proc_stat->running);
+			proc_stat->running = (uint64_t)atoll(buffer + 14);
 			got_flags |= PROC_STAT_SCN_PROCS_RUN;
 		} else if (!strncmp(buffer, "procs_blocked ", 14)) {
-			sscanf(buffer + 14, "%" SCNu64, &proc_stat->blocked);
+			proc_stat->blocked = (uint64_t)atoll(buffer + 14);
 			got_flags |= PROC_STAT_SCN_PROCS_BLK;
 		} else if (!strncmp(buffer, "processes ", 10)) {
-			sscanf(buffer + 10, "%" SCNu64, &proc_stat->processes);
+			proc_stat->processes = (uint64_t)atoll(buffer + 10);
 			got_flags |= PROC_STAT_SCN_PROCS;
 		}
 		if ((got_flags & PROC_STAT_SCN_ALL) == PROC_STAT_SCN_ALL)
