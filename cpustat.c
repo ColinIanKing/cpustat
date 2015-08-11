@@ -441,7 +441,9 @@ static char *get_pid_cmdline(const pid_t pid)
 
 no_cmd:
 	if (statok) {
-		info = calloc(1, sizeof(pid_info_t));
+		/* We may be re-using a stale old PID, or we may need a new info */
+		if (!info)
+			info = calloc(1, sizeof(pid_info_t));
 		if (info) {
 			info->pid = pid;
 			info->cmdline = ptr;
