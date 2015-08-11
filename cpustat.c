@@ -1344,40 +1344,28 @@ static void get_cpustats(
  *  cpu_freq_average()
  *	get averagr CPU frequency
  */
-static double cpu_freq_average(void)
+static double cpu_freq_average(uint32_t max_cpus)
 {
-	struct dirent **cpu_list;
-	int i, n_cpus, n = 0;
+	uint32_t i, n = 0;
 	double total_freq = 0;
 
-	n_cpus = scandir("/sys/devices/system/cpu", &cpu_list, NULL, alphasort);
-	if (n_cpus < 1)
-		return 0.0;
+	for (i = 0; i < max_cpus; i++) {
+		char path[PATH_MAX];
+		int fd;
 
-	for (i = 0; i < n_cpus; i++) {
-		char *name = cpu_list[i]->d_name;
+		snprintf(path, sizeof(path),
+			"/sys/devices/system/cpu/cpu%" PRIu32 "/cpufreq/scaling_cur_freq", i);
+		if ((fd = open(path, O_RDONLY)) > -1) {
+			char buffer[64];
 
-		if (!strncmp(name, "cpu", 3) && isdigit(name[3])) {
-			char path[PATH_MAX];
-			FILE *fp;
-
-			snprintf(path, sizeof(path),
-				"/sys/devices/system/cpu/%s/cpufreq/scaling_cur_freq",
-				name);
-			fp = fopen(path, "r");
-			if (fp) {
-				uint64_t freq;
-				if (fscanf(fp, "%" SCNu64, &freq) == 1) {
-					total_freq += (double)freq * 1000.0;
-					n++;
-				}
-				(void)fclose(fp);
+			if (read(fd, buffer, sizeof(buffer)) > 0) {
+				uint64_t freq = (uint64_t)atoll(buffer);
+				total_freq += (double)freq * 1000.0;
+				n++;
 			}
+			(void)close(fd);
 		}
-		free(cpu_list[i]);
 	}
-	free(cpu_list);
-
 	return n > 0 ? total_freq / (double)n : 0.0;
 }
 
@@ -1541,7 +1529,7 @@ int main(int argc, char **argv)
 	struct sigaction new_action;
 	proc_stat_t proc_stats[2];
 	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
-	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
+	uint32_t max_cpus = sysconf(_SC_NPROCESSORS_CONF);
 	double duration_secs = 1.0;
 	double time_start, time_now;
 	int64_t count = 1, t = 1;
@@ -1550,6 +1538,9 @@ int main(int argc, char **argv)
 	uint32_t samples = 0;
 	bool forever = true;
 	int i;
+
+
+	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 
 	for (;;) {
 		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
@@ -1729,7 +1720,7 @@ int main(int argc, char **argv)
 
 		proc_stat_diff(proc_stat_old, proc_stat_new, &proc_stat_delta);
 		if (opt_flags & OPT_EXTRA_STATS) {
-			double avg_cpu_freq = cpu_freq_average();
+			double avg_cpu_freq = cpu_freq_average(max_cpus);
 			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
