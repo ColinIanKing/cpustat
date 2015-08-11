@@ -42,6 +42,7 @@
 
 #define APP_NAME		"cpustat"
 #define TABLE_SIZE		(2411)		/* Should be a prime */
+#define PID_HASH_SIZE		(11113)		/* Ideally a large prime */
 #define OPT_QUIET		(0x00000001)
 #define OPT_IGNORE_SELF		(0x00000002)
 #define	OPT_CMD_SHORT		(0x00000004)
@@ -200,7 +201,7 @@ static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
 static cpu_info_t *cpu_info_hash[TABLE_SIZE];
 					/* hash of cpu_info */
 static cpu_info_t *cpu_info_list;	/* cache list of cpu_info */
-static pid_info_t *pid_info_hash[TABLE_SIZE];
+static pid_info_t *pid_info_hash[PID_HASH_SIZE];
 					/* Hash of cmdline info */
 static size_t cpu_info_list_length;	/* cpu_info_list length */
 static sample_delta_list_t *sample_delta_list_head;
@@ -385,7 +386,7 @@ static char *get_pid_cmdline(const pid_t pid)
 	int fd;
 	ssize_t ret;
 	pid_info_t *info;
-	int h = pid % TABLE_SIZE;
+	int h = pid % PID_HASH_SIZE;
 	char path[PATH_MAX];
 	struct stat statbuf;
 	bool statok = false;
@@ -464,7 +465,7 @@ static void pid_info_hash_free(void)
 {
 	size_t i;
 
-	for (i = 0; i < TABLE_SIZE; i++) {
+	for (i = 0; i < PID_HASH_SIZE; i++) {
 		pid_info_t *info = pid_info_hash[i];
 
 		while (info) {
