@@ -207,7 +207,7 @@ static char *csv_results;		/* results in comma separated values */
 static volatile bool stop_cpustat = false;	/* set by sighandler */
 static double opt_threshold;		/* ignore samples with CPU usage deltas less than this */
 static unsigned int opt_flags;		/* option flags */
-static unsigned long clock_ticks;	/* number of clock ticks per second */
+static uint64_t clock_ticks;		/* number of clock ticks per second */
 static pid_t opt_pid = -1;		/* PID to match against, -p option */
 
 /*
@@ -610,7 +610,7 @@ static void info_dump(
 	const double total_ticks = (double)ticks * duration;
 	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
 	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
-	double cpu_time = ((double)(info->ticks)) / clock_ticks;
+	double cpu_time = ((double)(info->ticks)) / (double)clock_ticks;
 
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
@@ -650,7 +650,7 @@ static void samples_dump(
 	const char *const filename,	/* file to dump samples */
 	const double duration,		/* duration in seconds */
 	const double time_now,		/* time right now */
-	const unsigned long nr_ticks,	/* number of ticks per sec */
+	const uint64_t nr_ticks,	/* number of ticks per sec */
 	const uint32_t samples)		/* number of samples */
 {
 	sample_delta_list_t	*sdl;
@@ -752,7 +752,7 @@ static void samples_dump(
  */
 static void cpu_distribution(
 	const double duration,
-	unsigned long nr_ticks)
+	uint64_t nr_ticks)
 {
 	cpu_info_t *cpu_info;
 	int i, cpu_max = -1;
@@ -792,7 +792,7 @@ static void cpu_distribution(
  *  samples_distribution()
  *	show distribution of CPU utilisation
  */
-static void samples_distribution(const unsigned long nr_ticks)
+static void samples_distribution(const uint64_t nr_ticks)
 {
 	sample_delta_list_t *sdl;
 	unsigned int bucket[MAX_DIVISIONS], max_bucket = 0, valid = 0, i, total = 0;
@@ -804,7 +804,7 @@ static void samples_distribution(const unsigned long nr_ticks)
 		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
-			double val = 100.0 * (double)sdi->delta / nr_ticks;
+			double val = 100.0 * (double)sdi->delta / (double)nr_ticks;
 			if (val > max)
 				max = val;
 			if (val < min)
@@ -827,7 +827,7 @@ static void samples_distribution(const unsigned long nr_ticks)
 		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
-			double val = 100.0 * (double)sdi->delta / nr_ticks;
+			double val = 100.0 * (double)sdi->delta / (double)nr_ticks;
 			int v = floor(val - min) / division;
 			v = v > MAX_DIVISIONS - 1 ? MAX_DIVISIONS -1 : v;
 			bucket[v]++;
@@ -1108,7 +1108,7 @@ static void OPTIMIZE3 HOT cpu_stat_sort_freq_add(
  */
 static void cpu_stat_diff(
 	const double duration,			/* time between each sample */
-	unsigned long nr_ticks,			/* ticks per second */
+	const uint64_t nr_ticks,		/* ticks per second */
 	const int32_t n_lines,			/* number of lines to output */
 	const double time_now,			/* time right now */
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
@@ -1517,11 +1517,11 @@ int main(int argc, char **argv)
 	double time_start, time_now;
 	struct sigaction new_action;
 	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
-	unsigned long nr_ticks;
+	uint64_t nr_ticks;
 
-	nr_ticks = clock_ticks = sysconf(_SC_CLK_TCK);
+	nr_ticks = clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= sysconf(_SC_NPROCESSORS_ONLN);
+		nr_ticks *= (uint64_t)sysconf(_SC_NPROCESSORS_ONLN);
 
 	for (;;) {
 		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
