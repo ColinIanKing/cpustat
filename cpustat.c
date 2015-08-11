@@ -1015,9 +1015,9 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	const pid_t pid,		/* PID of task */
 	const char *comm,		/* Name of task */
 	const char state,		/* State field */
-	const uint64_t utime,
-	const uint64_t stime,
-	const int processor)
+	const uint64_t utime,		/* user time in ticks */
+	const uint64_t stime,		/* system time in ticks */
+	const int processor)		/* processor it ran on */
 {
 	char ident[1024];
 	cpu_stat_t *cs;
