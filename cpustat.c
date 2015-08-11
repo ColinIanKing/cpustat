@@ -1527,6 +1527,7 @@ int main(int argc, char **argv)
 {
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **cpu_stats_tmp;
 	struct sigaction new_action;
+	proc_stat_t proc_stats[2];
 	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
 	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 	double duration_secs = 1.0;
@@ -1667,12 +1668,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
 	}
-	proc_stat_old = alloca(sizeof(proc_stat_t));
-	proc_stat_new = alloca(sizeof(proc_stat_t));
-	if (proc_stat_old == NULL || proc_stat_new == NULL) {
-		fprintf(stderr, "Cannot allocate proc statistics tables\n");
-		exit(EXIT_FAILURE);
-	}
+	proc_stat_old = &proc_stats[0];
+	proc_stat_new = &proc_stats[1];
 	time_now = time_start = gettime_to_double();
 	get_cpustats(cpu_stats_old, time_now);
 	get_proc_stat(proc_stat_old);
