@@ -453,10 +453,10 @@ no_cmd:
 
 /*
  *  pid_info_hash_free()
-	free pid_info hash table
+ *	free pid_info hash table
  *
  */
-void pid_info_hash_free(void)
+static void pid_info_hash_free(void)
 {
 	size_t i;
 
