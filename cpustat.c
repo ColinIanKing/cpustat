@@ -1470,7 +1470,6 @@ static char *load_average(void)
 
 	fp = fopen("/proc/loadavg", "r");
 	if (fp) {
-		static char buffer[64];
 		float l1, l5, l10;
 		int ret;
 
@@ -1478,6 +1477,7 @@ static char *load_average(void)
 		(void)fclose(fp);
 
 		if (ret == 3) {
+			static char buffer[64];
 			snprintf(buffer, sizeof(buffer),
 				"%.2f %.2f %.2f", l1, l5, l10);
 			return buffer;
