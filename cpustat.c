@@ -263,6 +263,18 @@ static const int signals[] = {
 	-1,
 };
 
+
+/*
+ *  get_ticks()
+ *	get ticks
+ */
+static inline uint64_t get_ticks(void)
+{
+	return (opt_flags & OPT_TICKS_ALL) ?
+		clock_ticks * (uint64_t)sysconf(_SC_NPROCESSORS_ONLN) :
+		clock_ticks;
+}
+
 /*
  *  secs_to_str()
  *	report seconds in different units.
@@ -567,11 +579,11 @@ static int info_compare_total(const void *const item1, const void *const item2)
 
 /*
  *  duration_round()
- *	round duration to nearest 1/20th second
+ *	round duration to nearest 1/100th second
  */
 static inline double duration_round(const double duration)
 {
-        return floor((duration * 20.0) + 0.5) / 20.0;
+        return floor((duration * 100.0) + 0.5) / 100.0;
 }
 
 /*
@@ -601,13 +613,11 @@ static void info_banner_dump(const double time_now)
 static void info_dump(
 	const uint64_t uticks,
 	const uint64_t sticks,
-	const uint64_t ticks,
-	const double duration,
+	const uint64_t total_ticks,
 	const cpu_info_t *info,
 	double *u_total,
 	double *s_total)
 {
-	const double total_ticks = (double)ticks * duration;
 	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
 	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
 	double cpu_time = ((double)(info->ticks)) / (double)clock_ticks;
@@ -651,6 +661,7 @@ static void samples_dump(
 	const double duration,		/* duration in seconds */
 	const double time_now,		/* time right now */
 	const uint64_t nr_ticks,	/* number of ticks per sec */
+	const uint64_t total_ticks,	/* total clock ticks */
 	const uint32_t samples)		/* number of samples */
 {
 	sample_delta_list_t	*sdl;
@@ -684,7 +695,7 @@ static void samples_dump(
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
 			info_dump(sorted_cpu_infos[i]->utotal, sorted_cpu_infos[i]->stotal,
-				nr_ticks, duration, sorted_cpu_infos[i],
+				total_ticks, sorted_cpu_infos[i],
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
@@ -1167,7 +1178,7 @@ static void cpu_stat_diff(
 				j++;
 				if (cpu_t_usage > 0.0)
 					info_dump(sorted->udelta, sorted->sdelta,
-						nr_ticks, duration, sorted->info,
+						nr_ticks * duration, sorted->info,
 						&cpu_u_total, &cpu_s_total);
 			}
 			sorted = sorted->sorted_usage_next;
@@ -1508,20 +1519,17 @@ static void show_usage(void)
 int main(int argc, char **argv)
 {
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **cpu_stats_tmp;
+	struct sigaction new_action;
+	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
+	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 	double duration_secs = 1.0;
-	int i;
+	double time_start, time_now;
 	int64_t count = 1, t = 1;
+	uint64_t nr_ticks, total_ticks = 0;
 	int32_t n_lines = -1;
 	uint32_t samples = 0;
 	bool forever = true;
-	double time_start, time_now;
-	struct sigaction new_action;
-	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
-	uint64_t nr_ticks;
-
-	nr_ticks = clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
-	if (opt_flags & OPT_TICKS_ALL)
-		nr_ticks *= (uint64_t)sysconf(_SC_NPROCESSORS_ONLN);
+	int i;
 
 	for (;;) {
 		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
@@ -1612,7 +1620,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot have -c, -l, -s at same time.\n");
 		exit(EXIT_FAILURE);
 	}
-
 	if (optind < argc) {
 		duration_secs = atof(argv[optind++]);
 		if (duration_secs < 0.1) {
@@ -1633,7 +1640,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-
 	opt_threshold *= duration_secs;
 
 	memset(&new_action, 0, sizeof(new_action));
@@ -1648,7 +1654,6 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	if (cpu_stats_old == NULL || cpu_stats_new == NULL) {
@@ -1661,16 +1666,14 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot allocate proc statistics tables\n");
 		exit(EXIT_FAILURE);
 	}
-
 	time_now = time_start = gettime_to_double();
-
 	get_cpustats(cpu_stats_old, time_now);
 	get_proc_stat(proc_stat_old);
+	nr_ticks = get_ticks();
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
 		double secs, duration = duration_secs, right_now;
-		int ret;
 
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
@@ -1686,8 +1689,7 @@ int main(int argc, char **argv)
 			t++;
 		}
 		double_to_timeval(secs, &tv);
-		ret = select(0, NULL, NULL, NULL, &tv);
-		if (ret < 0) {
+		if (select(0, NULL, NULL, NULL, &tv) < 0) {
 			if (errno == EINTR) {
 				stop_cpustat = true;
 			} else {
@@ -1697,8 +1699,14 @@ int main(int argc, char **argv)
 				break;
 			}
 		}
+		/*
+		 *  total ticks can change depending on number of CPUs online
+		 *  so we need to account for these changing.
+		 */
 		right_now = gettime_to_double();
 		duration = duration_round(right_now - time_now);
+		nr_ticks = get_ticks() * duration;
+		total_ticks += nr_ticks;
 		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
 		get_proc_stat(proc_stat_new);
@@ -1725,13 +1733,11 @@ int main(int argc, char **argv)
 		proc_stat_old = proc_stat_new;
 		proc_stat_new = proc_stat_tmp;
 		samples++;
-
 		putchar('\n');
 	}
 
 	time_now = gettime_to_double();
-
-	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, samples);
+	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, total_ticks, samples);
 	if (opt_flags & OPT_DISTRIBUTION) {
 		samples_distribution(nr_ticks);
 		cpu_distribution(time_now - time_start, nr_ticks);
