@@ -58,6 +58,13 @@
 #define OPT_DISTRIBUTION	(0x00001000)
 #define OPT_EXTRA_STATS		(0x00002000)
 
+#define	PROC_STAT_SCN_IRQ	(0x01)
+#define PROC_STAT_SCN_SOFTIRQ	(0x02)
+#define PROC_STAT_SCN_CTXT	(0x04)
+#define PROC_STAT_SCN_PROCS_RUN	(0x08)
+#define PROC_STAT_SCN_PROCS_BLK	(0x10)
+#define PROC_STAT_SCN_ALL	(0x1f)
+
 /* Histogram specific constants */
 #define MAX_DIVISIONS		(20)
 #define DISTRIBUTION_WIDTH	(40)
@@ -1177,6 +1184,7 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 {
 	FILE *fp;
 	char buffer[4096];
+	unsigned int got_flags = 0;
 
 	memset(proc_stat, 0, sizeof(proc_stat_t));
 
@@ -1187,15 +1195,22 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (!strncmp(buffer, "intr ", 5)) {
 			sscanf(buffer + 5, "%" SCNu64, &proc_stat->irq);
+			got_flags |= PROC_STAT_SCN_IRQ;
 		} else if (!strncmp(buffer, "softirq ", 8)) {
 			sscanf(buffer + 8, "%" SCNu64, &proc_stat->softirq);
+			got_flags |= PROC_STAT_SCN_SOFTIRQ;
 		} else if (!strncmp(buffer, "ctxt ", 5)) {
 			sscanf(buffer + 5, "%" SCNu64, &proc_stat->ctxt);
+			got_flags |= PROC_STAT_SCN_CTXT;
 		} else if (!strncmp(buffer, "procs_running ", 14)) {
 			sscanf(buffer + 14, "%" SCNu64, &proc_stat->running);
+			got_flags |= PROC_STAT_SCN_PROCS_RUN;
 		} else if (!strncmp(buffer, "procs_blocked ", 14)) {
 			sscanf(buffer + 14, "%" SCNu64, &proc_stat->blocked);
+			got_flags |= PROC_STAT_SCN_PROCS_BLK;
 		}
+		if ((got_flags & PROC_STAT_SCN_ALL) == PROC_STAT_SCN_ALL)
+			break;
 	}
 	fclose(fp);
 	return 0;
