@@ -1535,24 +1535,40 @@ static char *cpus_online(void)
  */
 static char *load_average(void)
 {
-	FILE *fp;
+	static char buffer[4096];
+	char *ptr = buffer;
+	ssize_t len;
+	int fd, skip = 3;
 
-	fp = fopen("/proc/loadavg", "r");
-	if (fp) {
-		float l1, l5, l10;
-		int ret;
+	if ((fd = open("/proc/loadavg", O_RDONLY)) < 0)
+		goto unknown;
+	len = read(fd, buffer, sizeof(buffer) - 1);
+	(void)close(fd);
+	if (len < 1)
+		goto unknown;
+	buffer[len] = '\0';
 
-		ret = fscanf(fp, "%10f %10f %10f", &l1, &l5, &l10);
-		(void)fclose(fp);
-
-		if (ret == 3) {
-			static char buffer[64];
-			snprintf(buffer, sizeof(buffer),
-				"%.2f %.2f %.2f", l1, l5, l10);
-			return buffer;
+	for (;;) {
+		if (*ptr == '\0') {
+			skip--;
+			break;
 		}
+		if (*ptr == ' ') {
+			skip--;
+			if (skip == 0) {
+				*ptr = '\0';
+				break;
+			}
+		}
+		ptr++;
 	}
+	if (skip != 0)
+		goto unknown;
+
+	return buffer;
+unknown:
 	return "unknown";
+
 }
 
 /*
