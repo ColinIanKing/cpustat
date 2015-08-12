@@ -665,7 +665,7 @@ static inline void putdec(const int v)
 	d = (v / 10);
 	fputc(d > 9 ? '?' : '0' + d, stdout);
 	d = (v % 10);
-	fputc(d > 9 ? '?' : '0' + d, stdout);
+	fputc('0' + d, stdout);
 }
 
 /*
