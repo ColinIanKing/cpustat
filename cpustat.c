@@ -595,24 +595,36 @@ static inline double duration_round(const double duration)
         return floor((duration * 100.0) + 0.5) / 100.0;
 }
 
+static inline void putdec(const int v)
+{
+	register int d;
+
+	d = (v / 10);
+	fputc(d > 9 ? '?' : '0' + d, stdout);
+	d = (v % 10);
+	fputc(d > 9 ? '?' : '0' + d, stdout);
+}
+
 /*
  *  info_banner_dump()
  *	dump banner for per_info stats
  */
 static void info_banner_dump(const double time_now)
 {
-	char ts[32];
-
+	fputs("  %%CPU   %%USR   %%SYS   PID S  CPU   Time Task", stdout);
 	if (opt_flags & OPT_TIMESTAMP) {
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		snprintf(ts, sizeof(ts), "  (%2.2d:%2.2d:%2.2d)",
-			tm.tm_hour, tm.tm_min, tm.tm_sec);
-	} else {
-		*ts = '\0';
+		fputs("  (", stdout);
+		putdec(tm.tm_hour);
+		fputc(':', stdout);
+		putdec(tm.tm_min);
+		fputc(':', stdout);
+		putdec(tm.tm_sec);
+		fputc(')', stdout);
 	}
-	printf("  %%CPU   %%USR   %%SYS   PID S  CPU   Time Task%s\n", ts);
+	fputc('\n', stdout);
 }
 
 /*
