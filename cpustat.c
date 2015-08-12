@@ -702,8 +702,10 @@ static void info_dump(
 	double *u_total,
 	double *s_total)
 {
-	const double cpu_u_usage = 100.0 * (double)uticks / total_ticks;
-	const double cpu_s_usage = 100.0 * (double)sticks / total_ticks;
+	const double cpu_u_usage =
+		total_ticks == 0 ? 0.0 : 100.0 * (double)uticks / total_ticks;
+	const double cpu_s_usage =
+		total_ticks == 0 ? 0.0 : 100.0 * (double)sticks / total_ticks;
 	double cpu_time = ((double)(info->ticks)) / (double)clock_ticks;
 
 	*u_total += cpu_u_usage;
@@ -1600,7 +1602,7 @@ static char *cpus_online(void)
 			if (n1 > -1)
 				cpus++;
 			continue;
-		} 
+		}
 		fclose(fp);
 		return "unknown";
 	}
