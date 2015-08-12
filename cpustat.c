@@ -1303,41 +1303,100 @@ static void get_cpustats(
 
 	while ((entry = readdir(dir)) != NULL) {
 		char filename[PATH_MAX];
-		FILE *fp;
+		char buffer[4096];
 		char comm[20];
-		char state;
+		char state, *ptr = buffer, *endptr, *tmp;
 		pid_t pid;
 		uint64_t utime;
 		uint64_t stime;
-		int n, processor;
+		ssize_t len;
+		int fd, processor, skip;
 
 		if (!isdigit(entry->d_name[0]))
 			continue;
 
 		snprintf(filename, sizeof(filename), "/proc/%s/stat",
 			entry->d_name);
-		if ((fp = fopen(filename, "r")) == NULL)
+		if ((fd = open(filename, O_RDONLY)) < 0)
 			continue;
 
-		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
-		n = fscanf(fp, "%8d (%20[^)]) %c %*d %*d %*d %*d %*d "
-				"%*u %*u %*u %*u %*u %20" SCNu64 "%20" SCNu64
-				"%*d %*d %*d %*d %*d %*d "
-				"%*u %*u %*d %*u %*u %*u "
-				"%*u %*u %*u %*u %*u "
-				"%*u %*u %*u %*u %*u "
-				"%*d %d",
-			&pid, comm, &state, &utime, &stime, &processor);
-		(void)fclose(fp);
+		if ((len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
+			continue;
+		(void)close(fd);
 
+		buffer[len] = '\0';
+
+		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
+
+		/*
+		 *  We used to use scanf but this is really expensive and it is far
+		 *  faster to parse the data via a more tedious means of scanning down
+		 *  the buffer manually..
+		 */
+		pid = (pid_t)strtoul(ptr, &endptr, 10);
+		if (endptr == ptr)
+			continue;
+		ptr = endptr;
+		if (*ptr != ' ')
+			continue;
+		ptr++;
+		if (*ptr != '(')
+			continue;
+		ptr++;
+		tmp = comm;
+		while ((*ptr != '\0') && (*ptr !=')') && ((tmp - comm) < 20))
+			*tmp++ = *ptr++;
+		*tmp = '\0';
+		if (*ptr != ')')
+			continue;
+		ptr++;
+		if (*ptr != ' ')
+			continue;
+		ptr++;
+		state = *ptr;
+		ptr++;
+
+		/* Skip over fields to the 14th field (utime) */
+		skip = 11;
+		while (skip > 0 && *ptr) {
+			if (*ptr == ' ')
+				skip--;
+			ptr++;
+		}
+		if (*ptr == '\0')
+			continue;
+		/* Field 14, utime */
+		utime = (uint64_t)strtoull(ptr, &endptr, 10);
+		if (endptr == ptr)
+			continue;
+		ptr = endptr;
+		if (*ptr != ' ')
+			continue;
+		ptr++;
+		/* Field 15, stime */
+		stime = (uint64_t)strtoull(ptr, &endptr, 10);
+		if (endptr == ptr)
+			continue;
+		ptr = endptr;
+		skip = 24;
+		while (skip > 0 && *ptr) {
+			if (*ptr == ' ')
+				skip--;
+			ptr++;
+		}
+		if (*ptr == '\0')
+			continue;
+		/* Field 39, processor */
+		processor = (pid_t)strtoul(ptr, &endptr, 10);
+		if (endptr == ptr)
+			continue;
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
 			continue;
 		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != pid))
 			continue;
 
-		if (n == 6)
-			cpu_stat_add(cpu_stats, time_now, pid, comm,
-				state, utime, stime, processor);
+		cpu_stat_add(cpu_stats, time_now, pid, comm,
+			state, utime, stime, processor);
 	}
 
 	(void)closedir(dir);
