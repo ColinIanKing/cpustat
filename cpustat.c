@@ -1395,9 +1395,10 @@ static void get_cpustats(
 		if ((fd = open(filename, O_RDONLY)) < 0)
 			continue;
 
-		if ((len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
-			continue;
+		len = read(fd, buffer, sizeof(buffer) - 1);
 		(void)close(fd);
+		if (len <= 1)
+			continue;
 
 		buffer[len] = '\0';
 
