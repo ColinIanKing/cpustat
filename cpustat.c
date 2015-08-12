@@ -39,6 +39,7 @@
 #include <math.h>
 #include <float.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #define APP_NAME		"cpustat"
 #define TABLE_SIZE		(2411)		/* Should be a prime */
@@ -267,6 +268,68 @@ static const int signals[] = {
 	-1,
 };
 
+
+/*
+ *  strtouint64()
+ *	fast string to uint64, is ~33% faster than GNU libc
+ */
+static uint64_t OPTIMIZE3 HOT strtouint64(char *str, char **endptr)
+{
+	register uint64_t v = 0;
+
+	while (*str == ' ' || *str == '\t')
+		str++;
+	if (*str == '-')
+		goto do_overflow;
+	for (;;) {
+		register unsigned int digit = *str - '0';
+
+		if (digit > 9)
+			break;
+		if (v >= 1844674407370955161)
+			goto do_overflow;
+		v *= 10;
+		v += digit;
+		str++;
+	}
+	*endptr = str;
+	return v;
+do_overflow:
+	errno = ERANGE;
+	return ~0;
+
+}
+
+/*
+ *  strtouint32()
+ *	fast string to uint32, is ~33% faster than GNU libc
+ */
+static uint32_t OPTIMIZE3 HOT strtouint32(char *str, char **endptr)
+{
+	register uint64_t v = 0;
+
+	while (*str == ' ' || *str == '\t')
+		str++;
+	if (*str == '-')
+		goto do_overflow;
+	for (;;) {
+		register unsigned int digit = *str - '0';
+
+		if (digit > 9)
+			break;
+		if (v >= 429496729)
+			goto do_overflow;
+		v *= 10;
+		v += digit;
+		str++;
+	}
+	*endptr = str;
+	return v;
+do_overflow:
+	errno = ERANGE;
+	return ~0;
+
+}
 
 /*
  *  get_ticks()
@@ -1345,7 +1408,7 @@ static void get_cpustats(
 		 *  faster to parse the data via a more tedious means of scanning down
 		 *  the buffer manually..
 		 */
-		pid = (pid_t)strtoul(ptr, &endptr, 10);
+		pid = (pid_t)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
 		ptr = endptr;
@@ -1378,7 +1441,7 @@ static void get_cpustats(
 		if (*ptr == '\0')
 			continue;
 		/* Field 14, utime */
-		utime = (uint64_t)strtoull(ptr, &endptr, 10);
+		utime = strtouint64(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
 		ptr = endptr;
@@ -1386,7 +1449,7 @@ static void get_cpustats(
 			continue;
 		ptr++;
 		/* Field 15, stime */
-		stime = (uint64_t)strtoull(ptr, &endptr, 10);
+		stime = strtouint64(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
 		ptr = endptr;
@@ -1399,7 +1462,7 @@ static void get_cpustats(
 		if (*ptr == '\0')
 			continue;
 		/* Field 39, processor */
-		processor = (pid_t)strtoul(ptr, &endptr, 10);
+		processor = (int)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
 		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
