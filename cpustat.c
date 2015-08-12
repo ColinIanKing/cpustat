@@ -674,7 +674,7 @@ static inline void putdec(const int v)
  */
 static void info_banner_dump(const double time_now)
 {
-	fputs("  %%CPU   %%USR   %%SYS   PID S  CPU   Time Task", stdout);
+	fputs("  %CPU   %USR   %SYS   PID S  CPU   Time Task", stdout);
 	if (opt_flags & OPT_TIMESTAMP) {
 		struct tm tm;
 
