@@ -454,25 +454,25 @@ static char *get_pid_cmdline(const pid_t pid)
 	struct stat statbuf;
 	bool statok = false;
 
-	snprintf(path, sizeof(path), "/proc/%u", pid);
-	if (stat(path, &statbuf) >= 0) {
+	snprintf(path, sizeof(path), "/proc/%i/cmdline", pid);
+	if ((fd = open(path, O_RDONLY)) < 0)
+		return NULL;
+
+	if (fstat(fd, &statbuf) == 0) {
 		statok = true;
 		for (info = pid_info_hash[h]; info; info = info->next) {
 			if (info->pid == pid) {
 				if (statbuf.st_ctim.tv_sec > info->st_ctim.tv_sec)
 					break;
+				(void)close(fd);
 				return info->cmdline;
 			}
 		}
 	}
-	snprintf(path, sizeof(path), "/proc/%i/cmdline", pid);
-	if ((fd = open(path, O_RDONLY)) < 0)
-		goto no_cmd;
-	if ((ret = read(fd, buffer, sizeof(buffer))) <= 0) {
-		(void)close(fd);
-		goto no_cmd;
-	}
+	ret = read(fd, buffer, sizeof(buffer));
 	(void)close(fd);
+	if (ret <= 0)
+		goto no_cmd;
 
 	if (ret >= (ssize_t)sizeof(buffer))
 		ret = sizeof(buffer) - 1;
