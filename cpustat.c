@@ -1494,7 +1494,8 @@ static double cpu_freq_average(uint32_t max_cpus)
 		int fd;
 
 		snprintf(path, sizeof(path),
-			"/sys/devices/system/cpu/cpu%" PRIu32 "/cpufreq/scaling_cur_freq", i);
+			"/sys/devices/system/cpu/cpu%" PRIu32
+			"/cpufreq/scaling_cur_freq", i);
 		if ((fd = open(path, O_RDONLY)) > -1) {
 			char buffer[64];
 			ssize_t ret;
@@ -1502,16 +1503,16 @@ static double cpu_freq_average(uint32_t max_cpus)
 			ret = read(fd, buffer, sizeof(buffer) - 1);
 			(void)close(fd);
 			if (ret > 0) {
-				uint64_t freq;
+				double freq;
 
 				buffer[ret] = '\0';
-				freq = (uint64_t)atoll(buffer);
-				total_freq += (double)freq * 1000.0;
+				freq = 1000.0 * (double)atoll(buffer);
+				total_freq += freq;
 				n++;
 			}
 		}
 	}
-	return n > 0 ? total_freq / (double)n : 0.0;
+	return n > 0 ? total_freq / n : 0.0;
 }
 
 /*
