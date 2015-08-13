@@ -1093,17 +1093,15 @@ static void cpu_stat_free_contents(
  */
 static void OPTIMIZE3 HOT cpu_stat_add(
 	cpu_stat_t *cpu_stats[],	/* CPU stat hash table */
+	cpu_info_t *info,		/* paritially complete cpu info */
 	const double time_now,		/* time sample was taken */
-	const pid_t pid,		/* PID of task */
-	const char *comm,		/* Name of task */
-	const char state,		/* State field */
 	const uint64_t utime,		/* user time in ticks */
-	const uint64_t stime,		/* system time in ticks */
-	const int processor)		/* processor it ran on */
+	const uint64_t stime)		/* system time in ticks */
 {
 	cpu_stat_t *cs, *cs_new;
-	cpu_info_t info;
 	uint32_t h;
+	const char *comm = info->comm;
+	const pid_t pid = info->pid;
 
 	h = hash_djb2a(pid, comm);
 	cs = cpu_stats[h];
@@ -1112,8 +1110,8 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		if ((pid == cs->info->pid) && (strcmp(cs->info->comm, comm) == 0)) {
 			cs->utime += utime;
 			cs->stime += stime;
-			cs->info->state = state;
-			cs->info->processor = processor;
+			cs->info->state = info->state;
+			cs->info->processor = info->processor;
 			return;
 		}
 	}
@@ -1122,26 +1120,23 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		/* Re-use one from the free list */
 		cs_new = cpu_stat_free_list;
 		cpu_stat_free_list = cs_new->next;
-		memset(cs_new, 0, sizeof(*cs_new));
 	} else {
-		if ((cs_new = calloc(1, sizeof(cpu_stat_t))) == NULL) {
+		if ((cs_new = malloc(sizeof(cpu_stat_t))) == NULL) {
 			fprintf(stderr,
 				"Out of memory allocating a cpu stat\n");
 			exit(1);
 		}
 	}
 
-	info.pid = pid;
-	info.comm = (char *)comm;
-	info.cmdline = get_pid_cmdline(pid);
-	info.kernel_thread = (info.cmdline == NULL);
-	info.processor = processor;
-	info.state = state;
+	info->cmdline = get_pid_cmdline(pid);
+	info->kernel_thread = (info->cmdline == NULL);
 
 	cs_new->utime = utime;
 	cs_new->stime = stime;
-	cs_new->info = cpu_info_find(&info, h);
+	cs_new->info = cpu_info_find(info, h);
 	cs_new->time = time_now;
+	cs_new->time_delta = 0.0;
+	cs_new->old = false;
 	cs_new->next = cpu_stats[h];
 	cs_new->sorted_usage_next = NULL;
 
@@ -1353,6 +1348,7 @@ static void get_cpustats(
 	struct dirent *entry;
 	static pid_t my_pid;
 
+
 	if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == 0))
 		my_pid = getpid();
 
@@ -1362,15 +1358,14 @@ static void get_cpustats(
 	}
 
 	while ((entry = readdir(dir)) != NULL) {
-		char filename[PATH_MAX];
-		char buffer[4096];
-		char comm[20];
-		char state, *ptr = buffer, *endptr, *tmp;
-		pid_t pid;
 		uint64_t utime;
 		uint64_t stime;
+		char filename[PATH_MAX];
+		char buffer[4096];
+		char *ptr = buffer, *endptr;
 		ssize_t len;
-		int fd, processor, skip;
+		int fd, skip;
+		cpu_info_t info;
 
 		if (!isdigit(entry->d_name[0]))
 			continue;
@@ -1394,7 +1389,7 @@ static void get_cpustats(
 		 *  faster to parse the data via a more tedious means of scanning down
 		 *  the buffer manually..
 		 */
-		pid = (pid_t)strtouint32(ptr, &endptr);
+		info.pid = (pid_t)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
 		ptr = endptr;
@@ -1404,17 +1399,17 @@ static void get_cpustats(
 		if (*ptr != '(')
 			continue;
 		ptr++;
-		tmp = comm;
-		while ((*ptr != '\0') && (*ptr !=')') && ((tmp - comm) < 20))
-			*tmp++ = *ptr++;
-		*tmp = '\0';
+		info.comm = ptr;
+		while ((*ptr != '\0') && (*ptr !=')') && ((ptr - info.comm) < 20))
+			ptr++;
 		if (*ptr != ')')
 			continue;
+		*ptr = '\0';
 		ptr++;
 		if (*ptr != ' ')
 			continue;
 		ptr++;
-		state = *ptr;
+		info.state = *ptr;
 		ptr++;
 
 		/* Skip over fields to the 14th field (utime) */
@@ -1448,16 +1443,15 @@ static void get_cpustats(
 		if (*ptr == '\0')
 			continue;
 		/* Field 39, processor */
-		processor = (int)strtouint32(ptr, &endptr);
+		info.processor = (int)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
-		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == pid))
+		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == info.pid))
 			continue;
-		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != pid))
+		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != info.pid))
 			continue;
 
-		cpu_stat_add(cpu_stats, time_now, pid, comm,
-			state, utime, stime, processor);
+		cpu_stat_add(cpu_stats, &info, time_now, utime, stime);
 	}
 
 	(void)closedir(dir);
