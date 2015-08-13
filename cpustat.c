@@ -99,6 +99,14 @@
 #define OPTIMIZE3
 #endif
 
+#if defined(__GNUC__)
+#define LIKELY(x)	__builtin_expect((x),1)
+#define UNLIKELY(x)	__builtin_expect((x),0)
+#else
+#define LIKELY(x)	(x)
+#define UNLIKELY(x)	(x)
+#endif
+
 /* per process cpu information */
 typedef struct cpu_info_t {
 	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
@@ -282,7 +290,7 @@ static uint64_t OPTIMIZE3 HOT strtouint64(char *str, char **endptr)
 
 		if (digit > 9)
 			break;
-		if (v >= 1844674407370955161)
+		if (UNLIKELY(v >= 1844674407370955161))
 			goto do_overflow;
 		v *= 10;
 		v += digit;
@@ -310,7 +318,7 @@ static uint32_t OPTIMIZE3 HOT strtouint32(char *str, char **endptr)
 
 		if (digit > 9)
 			break;
-		if (v >= 429496729)
+		if (UNLIKELY(v >= 429496729))
 			goto do_overflow;
 		v *= 10;
 		v += digit;
@@ -361,7 +369,7 @@ static void get_tm(const double time_now, struct tm *tm)
 {
 	time_t now = (time_t)time_now;
 
-	if (now == ((time_t) -1)) {
+	if (UNLIKELY((now == ((time_t) -1)))) {
 		memset(tm, 0, sizeof(struct tm));
 	} else {
 		(void)localtime_r(&now, tm);
@@ -397,7 +405,7 @@ static double gettime_to_double(void)
 {
 	struct timeval tv;
 
-        if (gettimeofday(&tv, NULL) < 0) {
+        if (UNLIKELY(gettimeofday(&tv, NULL) < 0)) {
                 fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
                         errno, strerror(errno));
                 exit(EXIT_FAILURE);
@@ -447,10 +455,10 @@ static char *get_pid_cmdline(const pid_t pid)
 	bool statok = false;
 
 	snprintf(path, sizeof(path), "/proc/%i/cmdline", pid);
-	if ((fd = open(path, O_RDONLY)) < 0)
+	if (UNLIKELY((fd = open(path, O_RDONLY)) < 0))
 		return NULL;
 
-	if (fstat(fd, &statbuf) == 0) {
+	if (LIKELY(fstat(fd, &statbuf) == 0)) {
 		statok = true;
 		for (info = pid_info_hash[h]; info; info = info->next) {
 			if (info->pid == pid) {
@@ -466,7 +474,7 @@ static char *get_pid_cmdline(const pid_t pid)
 	if (ret <= 0)
 		goto no_cmd;
 
-	if (ret >= (ssize_t)sizeof(buffer))
+	if (UNLIKELY(ret >= (ssize_t)sizeof(buffer)))
 		ret = sizeof(buffer) - 1;
 	buffer[ret] = '\0';
 
@@ -500,7 +508,7 @@ no_cmd:
 		/* We may be re-using a stale old PID, or we may need a new info */
 		if (!info)
 			info = malloc(sizeof(pid_info_t));
-		if (info) {
+		if (LIKELY((info != NULL))) {
 			info->pid = pid;
 			info->cmdline = ptr;
 			info->next = pid_info_hash[h];
@@ -581,7 +589,7 @@ static void OPTIMIZE3 HOT sample_add(
 	 */
 	if (!found) {
 
-		if ((sdl = malloc(sizeof(sample_delta_list_t))) == NULL) {
+		if (UNLIKELY((sdl = malloc(sizeof(sample_delta_list_t))) == NULL)) {
 			fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
@@ -597,7 +605,7 @@ static void OPTIMIZE3 HOT sample_add(
 	}
 
 	/* Now append the sdi onto the list */
-	if ((sdi = malloc(sizeof(sample_delta_item_t))) == NULL) {
+	if (UNLIKELY((sdi = malloc(sizeof(sample_delta_item_t))) == NULL)) {
 		fprintf(stderr, "Cannot allocate sample delta item\n");
 		exit(EXIT_FAILURE);
 	}
@@ -748,8 +756,8 @@ static void samples_dump(
 	FILE *fp;
 	double first_time = -1.0;
 
-	if ((sorted_cpu_infos =
-	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL) {
+	if (UNLIKELY((sorted_cpu_infos =
+	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL)) {
 		fprintf(stderr,
 			"Cannot allocate buffer for sorting cpu_infos\n");
 		exit(EXIT_FAILURE);
@@ -758,7 +766,7 @@ static void samples_dump(
 	/* Just want the CPUs with some non-zero total */
 	for (n = 0, cpu_info = cpu_info_list; cpu_info;
 	     cpu_info = cpu_info->list_next) {
-		if (cpu_info->total > 0)
+		if (LIKELY((cpu_info->total > 0)))
 			sorted_cpu_infos[n++] = cpu_info;
 	}
 
@@ -962,7 +970,7 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 			return info;
 	}
 
-	if ((info = malloc(sizeof(cpu_info_t))) == NULL) {
+	if (UNLIKELY((info = malloc(sizeof(cpu_info_t))) == NULL)) {
 		fprintf(stderr, "Cannot allocate CPU info\n");
 		exit(EXIT_FAILURE);
 	}
@@ -970,13 +978,9 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
 	} else {
-		if ((info->cmdline = strdup(new_info->cmdline)) == NULL) {
+		if (UNLIKELY((info->cmdline = strdup(new_info->cmdline)) == NULL)) {
 			fprintf(stderr, "Cannot allocate CPU cmdline field info\n");
 			exit(EXIT_FAILURE);
-		}
-		if (info->cmdline == NULL) {
-			fprintf(stderr, "Out of memory allocating a cpu stat fields\n");
-			exit(1);
 		}
 	}
 
@@ -1110,7 +1114,7 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		cs_new = cpu_stat_free_list;
 		cpu_stat_free_list = cs_new->next;
 	} else {
-		if ((cs_new = malloc(sizeof(cpu_stat_t))) == NULL) {
+		if (UNLIKELY((cs_new = malloc(sizeof(cpu_stat_t))) == NULL)) {
 			fprintf(stderr,
 				"Out of memory allocating a cpu stat\n");
 			exit(1);
@@ -1261,7 +1265,7 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 	memset(proc_stat, 0, sizeof(proc_stat_t));
 
 	fp = fopen("/proc/stat", "r");
-	if (!fp) {
+	if (UNLIKELY(!fp)) {
 		return -1;
 	}
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -1337,11 +1341,10 @@ static void get_cpustats(
 	struct dirent *entry;
 	static pid_t my_pid;
 
-
-	if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == 0))
+	if (UNLIKELY(((opt_flags & OPT_IGNORE_SELF) && (my_pid == 0))))
 		my_pid = getpid();
 
-	if ((dir = opendir("/proc")) == NULL) {
+	if (UNLIKELY((dir = opendir("/proc")) == NULL)) {
 		fprintf(stderr, "Cannot read directory /proc\n");
 		return;
 	}
@@ -1366,7 +1369,7 @@ static void get_cpustats(
 
 		len = read(fd, buffer, sizeof(buffer) - 1);
 		(void)close(fd);
-		if (len <= 1)
+		if (UNLIKELY(len <= 1))
 			continue;
 
 		buffer[len] = '\0';
@@ -1382,20 +1385,20 @@ static void get_cpustats(
 		if (endptr == ptr)
 			continue;
 		ptr = endptr;
-		if (*ptr != ' ')
+		if (UNLIKELY(*ptr != ' '))
 			continue;
 		ptr++;
-		if (*ptr != '(')
+		if (UNLIKELY((*ptr != '(')))
 			continue;
 		ptr++;
 		tmp = info.comm;
 		while ((*ptr != '\0') && (*ptr !=')') && ((size_t)(tmp - info.comm) < sizeof(info.comm)))
 			*tmp++ = *ptr++;
-		if (*ptr != ')')
+		if (UNLIKELY(*ptr != ')'))
 			continue;
 		*tmp = '\0';
 		ptr++;
-		if (*ptr != ' ')
+		if (UNLIKELY(*ptr != ' '))
 			continue;
 		ptr++;
 		info.state = *ptr;
@@ -1408,19 +1411,19 @@ static void get_cpustats(
 				skip--;
 			ptr++;
 		}
-		if (*ptr == '\0')
+		if (UNLIKELY(*ptr == '\0'))
 			continue;
 		/* Field 14, utime */
 		utime = strtouint64(ptr, &endptr);
-		if (endptr == ptr)
+		if (UNLIKELY(endptr == ptr))
 			continue;
 		ptr = endptr;
-		if (*ptr != ' ')
+		if (UNLIKELY(*ptr != ' '))
 			continue;
 		ptr++;
 		/* Field 15, stime */
 		stime = strtouint64(ptr, &endptr);
-		if (endptr == ptr)
+		if (UNLIKELY(endptr == ptr))
 			continue;
 		ptr = endptr;
 		skip = 24;
@@ -1429,15 +1432,15 @@ static void get_cpustats(
 				skip--;
 			ptr++;
 		}
-		if (*ptr == '\0')
+		if (UNLIKELY((*ptr == '\0')))
 			continue;
 		/* Field 39, processor */
 		info.processor = (int)strtouint32(ptr, &endptr);
-		if (endptr == ptr)
+		if (UNLIKELY(endptr == ptr))
 			continue;
-		if ((opt_flags & OPT_IGNORE_SELF) && (my_pid == info.pid))
+		if (UNLIKELY(((opt_flags & OPT_IGNORE_SELF) && (my_pid == info.pid))))
 			continue;
-		if ((opt_flags & OPT_MATCH_PID) && (opt_pid != info.pid))
+		if (UNLIKELY(((opt_flags & OPT_MATCH_PID) && (opt_pid != info.pid))))
 			continue;
 
 		cpu_stat_add(cpu_stats, &info, time_now, utime, stime);
@@ -1462,13 +1465,13 @@ static double cpu_freq_average(uint32_t max_cpus)
 		snprintf(path, sizeof(path),
 			"/sys/devices/system/cpu/cpu%" PRIu32
 			"/cpufreq/scaling_cur_freq", i);
-		if ((fd = open(path, O_RDONLY)) > -1) {
+		if (LIKELY((fd = open(path, O_RDONLY)) > -1)) {
 			char buffer[64];
 			ssize_t ret;
 
 			ret = read(fd, buffer, sizeof(buffer) - 1);
 			(void)close(fd);
-			if (ret > 0) {
+			if (LIKELY(ret > 0)) {
 				double freq;
 
 				buffer[ret] = '\0';
@@ -1518,11 +1521,11 @@ static char *cpus_online(void)
 	char *ptr = buffer;
 	ssize_t ret;
 
-	if ((fd = open("/sys/devices/system/cpu/online", O_RDONLY)) < 0)
+	if (UNLIKELY((fd = open("/sys/devices/system/cpu/online", O_RDONLY)) < 0))
 		goto unknown;
 	ret = read(fd, buffer, sizeof(buffer) - 1);
 	close(fd);
-	if (ret < 0)
+	if (UNLIKELY(ret < 0))
 		goto unknown;
 
 	for (;;) {
@@ -1573,11 +1576,11 @@ static char *load_average(void)
 	ssize_t len;
 	int fd, skip = 3;
 
-	if ((fd = open("/proc/loadavg", O_RDONLY)) < 0)
+	if (UNLIKELY((fd = open("/proc/loadavg", O_RDONLY)) < 0))
 		goto unknown;
 	len = read(fd, buffer, sizeof(buffer) - 1);
 	(void)close(fd);
-	if (len < 1)
+	if (UNLIKELY(len < 1))
 		goto unknown;
 	buffer[len] = '\0';
 
@@ -1778,7 +1781,7 @@ int main(int argc, char **argv)
 	}
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
-	if (cpu_stats_old == NULL || cpu_stats_new == NULL) {
+	if (UNLIKELY(cpu_stats_old == NULL || cpu_stats_new == NULL)) {
 		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1807,7 +1810,7 @@ int main(int argc, char **argv)
 			t++;
 		}
 		double_to_timeval(secs, &tv);
-		if (select(0, NULL, NULL, NULL, &tv) < 0) {
+		if (UNLIKELY(select(0, NULL, NULL, NULL, &tv) < 0)) {
 			if (errno == EINTR) {
 				stop_cpustat = true;
 			} else {
