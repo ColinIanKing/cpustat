@@ -109,7 +109,6 @@ typedef struct cpu_info_t {
 	uint64_t	ticks;		/* Total life time in CPU ticks */
 	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
-	char		*ident;		/* Pid + comm identifier */
 	pid_t		pid;		/* Process ID */
 	bool		kernel_thread;	/* true if a kernel thread */
 	int		processor;	/* Last CPU run on */
@@ -353,7 +352,6 @@ static const char *secs_to_str(const double secs)
 		secs / second_scales[i].scale, second_scales[i].ch);
 	return buf;
 }
-
 
 /*
  *  get_tm()
@@ -954,9 +952,11 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	const uint32_t hash)
 {
 	cpu_info_t *info;
+	const char *comm = new_info->comm;
+	const pid_t pid = new_info->pid;
 
 	for (info = cpu_info_hash[hash]; info; info = info->hash_next) {
-		if (strcmp(new_info->ident, info->ident) == 0)
+		if ((pid == info->pid) && (strcmp(comm, info->comm) == 0))
 			return info;
 	}
 
@@ -981,13 +981,11 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 		}
 	}
 
-	info->ident = strdup(new_info->ident);
 	info->state = new_info->state;
 	info->processor = new_info->processor;
 
 	if (info->comm == NULL ||
-	    info->cmdline == NULL ||
-	    info->ident == NULL) {
+	    info->cmdline == NULL) {
 		fprintf(stderr, "Out of memory allocating a cpu stat fields\n");
 		exit(1);
 	}
@@ -1013,7 +1011,6 @@ static void cpu_info_free(void *const data)
 	if (info->cmdline != info->comm)
 		free(info->cmdline);
 	free(info->comm);
-	free(info->ident);
 	free(info);
 }
 
@@ -1048,14 +1045,13 @@ static void cpu_stat_list_free(void)
 	}
 }
 
-
 /*
  *  hash_djb2a()
  *	Hash a string, from Dan Bernstein comp.lang.c (xor version)
  */
-static uint32_t OPTIMIZE3 HOT hash_djb2a(const char *str)
+static uint32_t OPTIMIZE3 HOT hash_djb2a(const pid_t pid, const char *str)
 {
-	register uint32_t hash = 5381;
+	register uint32_t hash = 5381 + pid;
 	register int c;
 
 	while ((c = *str++)) {
@@ -1105,18 +1101,15 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	const uint64_t stime,		/* system time in ticks */
 	const int processor)		/* processor it ran on */
 {
-	char ident[1024];
 	cpu_stat_t *cs, *cs_new;
 	cpu_info_t info;
 	uint32_t h;
 
-	snprintf(ident, sizeof(ident), "%x%s", pid, comm);
-
-	h = hash_djb2a(ident);
+	h = hash_djb2a(pid, comm);
 	cs = cpu_stats[h];
 
 	for (cs = cpu_stats[h]; cs; cs = cs->next) {
-		if (strcmp(cs->info->ident, ident) == 0) {
+		if ((pid == cs->info->pid) && (strcmp(cs->info->comm, comm) == 0)) {
 			cs->utime += utime;
 			cs->stime += stime;
 			cs->info->state = state;
@@ -1125,7 +1118,6 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		}
 	}
 	/* Not found, it is new! */
-
 	if (cpu_stat_free_list) {
 		/* Re-use one from the free list */
 		cs_new = cpu_stat_free_list;
@@ -1143,7 +1135,6 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	info.comm = (char *)comm;
 	info.cmdline = get_pid_cmdline(pid);
 	info.kernel_thread = (info.cmdline == NULL);
-	info.ident = ident;
 	info.processor = processor;
 	info.state = state;
 
@@ -1166,13 +1157,11 @@ static cpu_stat_t OPTIMIZE3 HOT *cpu_stat_find(
 	const cpu_stat_t *const needle)		/* CPU stat to find */
 {
 	cpu_stat_t *ts;
-	char ident[1024];
+	const char *comm = needle->info->comm;
+	const pid_t pid = needle->info->pid;
 
-	snprintf(ident, sizeof(ident), "%x%s",
-		needle->info->pid, needle->info->comm);
-
-	for (ts = haystack[hash_djb2a(ident)]; ts; ts = ts->next)
-		if (strcmp(ts->info->ident, ident) == 0)
+	for (ts = haystack[hash_djb2a(needle->info->pid, needle->info->comm)]; ts; ts = ts->next)
+		if ((pid == ts->info->pid) && (strcmp(comm, ts->info->comm) == 0))
 			return ts;
 
 	return NULL;	/* no success */
