@@ -103,16 +103,16 @@
 typedef struct cpu_info_t {
 	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
 	struct cpu_info_t *list_next;	/* Next cpu info in list */
+	pid_t		pid;		/* Process ID */
+	char 		comm[17];	/* Name of process/kernel task */
+	char		state;		/* Run state */
+	bool		kernel_thread;	/* true if a kernel thread */
 	uint64_t	utotal;		/* Usr Space total CPU ticks */
 	uint64_t	stotal;		/* Sys Space total CPU ticks */
 	uint64_t	total;		/* Total number of CPU ticks */
 	uint64_t	ticks;		/* Total life time in CPU ticks */
-	char 		*comm;		/* Name of process/kernel task */
 	char		*cmdline;	/* Full name of process cmdline */
-	pid_t		pid;		/* Process ID */
-	bool		kernel_thread;	/* true if a kernel thread */
 	int		processor;	/* Last CPU run on */
-	char		state;		/* Run state */
 } cpu_info_t;
 
 /* system wide CPU stats */
@@ -962,20 +962,11 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 			return info;
 	}
 
-	if ((info = calloc(1, sizeof(cpu_info_t))) == NULL) {
+	if ((info = malloc(sizeof(cpu_info_t))) == NULL) {
 		fprintf(stderr, "Cannot allocate CPU info\n");
 		exit(EXIT_FAILURE);
 	}
-	info->state = new_info->state;
-	info->processor = new_info->processor;
-	info->pid = new_info->pid;
-	info->kernel_thread = new_info->kernel_thread;
-
-	if ((info->comm = strdup(new_info->comm)) == NULL) {
-		fprintf(stderr, "Cannot allocate CPU comm field info\n");
-		exit(EXIT_FAILURE);
-	}
-
+	memcpy(info, new_info, sizeof(cpu_info_t));
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
 	} else {
@@ -983,12 +974,10 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 			fprintf(stderr, "Cannot allocate CPU cmdline field info\n");
 			exit(EXIT_FAILURE);
 		}
-	}
-
-	if (info->comm == NULL ||
-	    info->cmdline == NULL) {
-		fprintf(stderr, "Out of memory allocating a cpu stat fields\n");
-		exit(1);
+		if (info->cmdline == NULL) {
+			fprintf(stderr, "Out of memory allocating a cpu stat fields\n");
+			exit(1);
+		}
 	}
 
 	/* Does not exist in list, append it */
@@ -1011,7 +1000,6 @@ static void cpu_info_free(void *const data)
 
 	if (info->cmdline != info->comm)
 		free(info->cmdline);
-	free(info->comm);
 	free(info);
 }
 
@@ -1363,7 +1351,7 @@ static void get_cpustats(
 		uint64_t stime;
 		char filename[PATH_MAX];
 		char buffer[4096];
-		char *ptr = buffer, *endptr;
+		char *ptr = buffer, *endptr, *tmp;
 		ssize_t len;
 		int fd, skip;
 		cpu_info_t info;
@@ -1400,12 +1388,12 @@ static void get_cpustats(
 		if (*ptr != '(')
 			continue;
 		ptr++;
-		info.comm = ptr;
-		while ((*ptr != '\0') && (*ptr !=')') && ((ptr - info.comm) < 20))
-			ptr++;
+		tmp = info.comm;
+		while ((*ptr != '\0') && (*ptr !=')') && ((size_t)(tmp - info.comm) < sizeof(info.comm)))
+			*tmp++ = *ptr++;
 		if (*ptr != ')')
 			continue;
-		*ptr = '\0';
+		*tmp = '\0';
 		ptr++;
 		if (*ptr != ' ')
 			continue;
