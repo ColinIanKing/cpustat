@@ -588,13 +588,13 @@ static void OPTIMIZE3 HOT sample_add(
 	 * list since time is assumed to be increasing
 	 */
 	if (!found) {
-
 		if (UNLIKELY((sdl = malloc(sizeof(sample_delta_list_t))) == NULL)) {
 			fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
 		sdl->next = NULL;
 		sdl->whence = whence;
+		sdl->sample_delta_item_list = NULL;
 		if (sample_delta_list_head)
 			sample_delta_list_tail->next = sdl;
 		else
@@ -609,10 +609,11 @@ static void OPTIMIZE3 HOT sample_add(
 		fprintf(stderr, "Cannot allocate sample delta item\n");
 		exit(EXIT_FAILURE);
 	}
+	sdi->next = sdl->sample_delta_item_list;
+	sdi->info = cpu_stat->info;
 	sdi->delta = cpu_stat->delta;
 	sdi->time_delta = cpu_stat->time_delta;
-	sdi->info = cpu_stat->info;
-	sdi->next = sdl->sample_delta_item_list;
+
 	sdl->sample_delta_item_list = sdi;
 }
 
@@ -975,6 +976,7 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 		exit(EXIT_FAILURE);
 	}
 	memcpy(info, new_info, sizeof(cpu_info_t));
+
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
 	} else {
@@ -1348,8 +1350,8 @@ static void get_cpustats(
 		fprintf(stderr, "Cannot read directory /proc\n");
 		return;
 	}
-
 	while ((entry = readdir(dir)) != NULL) {
+		cpu_info_t info;
 		uint64_t utime;
 		uint64_t stime;
 		char filename[PATH_MAX];
@@ -1357,7 +1359,6 @@ static void get_cpustats(
 		char *ptr = buffer, *endptr, *tmp;
 		ssize_t len;
 		int fd, skip;
-		cpu_info_t info;
 
 		if (!isdigit(entry->d_name[0]))
 			continue;
