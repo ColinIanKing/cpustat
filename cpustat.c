@@ -499,7 +499,7 @@ no_cmd:
 	if (statok) {
 		/* We may be re-using a stale old PID, or we may need a new info */
 		if (!info)
-			info = calloc(1, sizeof(pid_info_t));
+			info = malloc(sizeof(pid_info_t));
 		if (info) {
 			info->pid = pid;
 			info->cmdline = ptr;
@@ -580,10 +580,12 @@ static void OPTIMIZE3 HOT sample_add(
 	 * list since time is assumed to be increasing
 	 */
 	if (!found) {
-		if ((sdl = calloc(1, sizeof(sample_delta_list_t))) == NULL) {
+
+		if ((sdl = malloc(sizeof(sample_delta_list_t))) == NULL) {
 			fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
+		sdl->next = NULL;
 		sdl->whence = whence;
 		if (sample_delta_list_head)
 			sample_delta_list_tail->next = sdl;
@@ -595,7 +597,7 @@ static void OPTIMIZE3 HOT sample_add(
 	}
 
 	/* Now append the sdi onto the list */
-	if ((sdi = calloc(1, sizeof(sample_delta_item_t))) == NULL) {
+	if ((sdi = malloc(sizeof(sample_delta_item_t))) == NULL) {
 		fprintf(stderr, "Cannot allocate sample delta item\n");
 		exit(EXIT_FAILURE);
 	}
@@ -964,13 +966,15 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 		fprintf(stderr, "Cannot allocate CPU info\n");
 		exit(EXIT_FAILURE);
 	}
-
+	info->state = new_info->state;
+	info->processor = new_info->processor;
 	info->pid = new_info->pid;
+	info->kernel_thread = new_info->kernel_thread;
+
 	if ((info->comm = strdup(new_info->comm)) == NULL) {
 		fprintf(stderr, "Cannot allocate CPU comm field info\n");
 		exit(EXIT_FAILURE);
 	}
-	info->kernel_thread = new_info->kernel_thread;
 
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
@@ -980,9 +984,6 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 			exit(EXIT_FAILURE);
 		}
 	}
-
-	info->state = new_info->state;
-	info->processor = new_info->processor;
 
 	if (info->comm == NULL ||
 	    info->cmdline == NULL) {
