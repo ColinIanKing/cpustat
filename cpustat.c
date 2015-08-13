@@ -1444,6 +1444,8 @@ static void get_cpustats(
 		if (UNLIKELY(((opt_flags & OPT_MATCH_PID) && (opt_pid != info.pid))))
 			continue;
 
+		info.total = 0;
+		info.ticks = 0;
 		cpu_stat_add(cpu_stats, &info, time_now, utime, stime);
 	}
 
