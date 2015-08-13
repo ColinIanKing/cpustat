@@ -272,15 +272,12 @@ static const int signals[] = {
 /*
  *  strtouint64()
  *	fast string to uint64, is ~33% faster than GNU libc
+ *	no white space pre-skip or -ve handling
  */
 static uint64_t OPTIMIZE3 HOT strtouint64(char *str, char **endptr)
 {
 	register uint64_t v = 0;
 
-	while (*str == ' ' || *str == '\t')
-		str++;
-	if (*str == '-')
-		goto do_overflow;
 	for (;;) {
 		register unsigned int digit = *str - '0';
 
@@ -303,15 +300,12 @@ do_overflow:
 /*
  *  strtouint32()
  *	fast string to uint32, is ~33% faster than GNU libc
+ *	no white space pre-skip or -ve handling
  */
 static uint32_t OPTIMIZE3 HOT strtouint32(char *str, char **endptr)
 {
 	register uint64_t v = 0;
 
-	while (*str == ' ' || *str == '\t')
-		str++;
-	if (*str == '-')
-		goto do_overflow;
 	for (;;) {
 		register unsigned int digit = *str - '0';
 
@@ -1541,76 +1535,59 @@ static const char *cpu_freq_format(double freq)
 }
 
 /*
- *  get_int32()
- *	parse an integer, return next non-digit char found
- */
-static int get_int32(FILE *fp, int32_t *val)
-{
-	bool gotdigit = false;
-	int ch;
-
-	*val = 0;
-
-	while ((ch = fgetc(fp)) != EOF) {
-		if (isdigit(ch)) {
-			gotdigit = true;
-			*val = ((*val) * 10) + (ch - '0');
-		} else
-			break;
-	}
-	if (!gotdigit)
-		*val = -1;
-	return ch;
-}
-
-/*
  *  cpus_online()
  *	determine number of CPUs online
  */
 static char *cpus_online(void)
 {
-	FILE *fp;
-	static char buffer[16];
+	int fd;
+	static char buffer[4096];
 	uint32_t cpus = 0;
+	char *ptr = buffer;
+	ssize_t ret;
 
-	fp = fopen("/sys/devices/system/cpu/online", "r");
-	if (!fp)
-		return "unknown";
+	if ((fd = open("/sys/devices/system/cpu/online", O_RDONLY)) < 0)
+		goto unknown;
+	ret = read(fd, buffer, sizeof(buffer) - 1);
+	close(fd);
+	if (ret < 0)
+		goto unknown;
 
 	for (;;) {
-		int ch;
+		char ch;
 		int32_t n1;
 
-		ch = get_int32(fp, &n1);
+		n1 = strtouint32(ptr, &ptr);
+		ch = *ptr;
 		if (ch == '-') {
-			int32_t n2;
+			int32_t n2, range;
+			ptr++;
 
-			ch = get_int32(fp, &n2);
-			if (n2 > -1) {
-				uint32_t range = n2 - n1 + 1;
-				if (range > 0)
-					cpus += range;
-			}
+			n2 = strtouint32(ptr, &ptr);
+			range = 1 + n2 - n1;
+			if (range > 0)
+				cpus += range;
 			n1 = -1;
-			/* next char must bte EOF or , */
+			ch = *ptr;
+			/* next char must be EOS or , */
 		}
-		if (ch == EOF || ch == '\n') {
+		if (ch == '\0' || ch == '\n') {
 			if (n1 > -1)
 				cpus++;
 			break;
-		}
-		if (ch == ',') {
+		} else if (ch == ',') {
+			ptr++;
 			if (n1 > -1)
 				cpus++;
 			continue;
-		}
-		fclose(fp);
-		return "unknown";
+		} else
+			goto unknown;
 	}
-	fclose(fp);
 	snprintf(buffer, sizeof(buffer), "%" PRId32, cpus);
 
 	return buffer;
+unknown:
+	return "unknown";
 }
 
 /*
