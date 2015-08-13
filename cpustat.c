@@ -574,9 +574,6 @@ static void OPTIMIZE3 HOT sample_add(
 	sample_delta_list_t *sdl;
 	sample_delta_item_t *sdi;
 
-	if (!(opt_flags & OPT_SAMPLES))
-		return;
-
 	for (sdl = sample_delta_list_tail; sdl; sdl = sdl->prev) {
 		if (sdl->whence == whence) {
 			found = true;
@@ -1221,6 +1218,7 @@ static void cpu_stat_diff(
 {
 	int i;
 	cpu_stat_t *sorted = NULL;
+	const bool do_sample_add = !(opt_flags & OPT_SAMPLES);
 
 	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
@@ -1237,7 +1235,8 @@ static void cpu_stat_diff(
 					cs->old = true;
 					if (cs->udelta + cs->sdelta > 0)
 						cpu_stat_sort_freq_add(&sorted, cs);
-					sample_add(cs, time_now);
+					if (do_sample_add)
+						sample_add(cs, time_now);
 					found->info->total += cs->delta;
 					found->info->utotal += cs->udelta;
 					found->info->stotal += cs->sdelta;
@@ -1248,7 +1247,8 @@ static void cpu_stat_diff(
 				cs->time_delta = duration;
 				if (cs->delta >= (int64_t)opt_threshold) {
 					cs->old = false;
-					sample_add(cs, time_now);
+					if (do_sample_add)
+						sample_add(cs, time_now);
 				}
 			}
 		}
