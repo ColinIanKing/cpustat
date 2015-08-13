@@ -61,17 +61,11 @@
 #define OPT_DISTRIBUTION	(0x00001000)
 #define OPT_EXTRA_STATS		(0x00002000)
 
-#define	PROC_STAT_SCN_IRQ	(0x01)
-#define PROC_STAT_SCN_SOFTIRQ	(0x02)
-#define PROC_STAT_SCN_CTXT	(0x04)
-#define PROC_STAT_SCN_PROCS_RUN	(0x08)
-#define PROC_STAT_SCN_PROCS_BLK	(0x10)
-#define PROC_STAT_SCN_PROCS	(0x20)
-#define PROC_STAT_SCN_ALL	(0x3f)
-
 /* Histogram specific constants */
 #define MAX_DIVISIONS		(20)
 #define DISTRIBUTION_WIDTH	(40)
+
+#define SIZEOF_ARRAY(a)		(sizeof(a) / sizeof(a[0]))
 
 #define _VER_(major, minor, patchlevel) \
 	((major * 10000) + (minor * 100) + patchlevel)
@@ -180,6 +174,17 @@ typedef struct {
 	char 		*suffix;	/* Human Hz scale factor */
 } cpu_freq_scale_t;
 
+/* scaling factor */
+typedef struct {
+	const char ch;			/* Scaling suffix */
+	const uint64_t scale;		/* Amount to scale by */
+} scale_t;
+
+typedef struct {
+	uint32_t hash;
+	uint16_t offset;
+} proc_stat_fields_t;
+
 static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e1,  1e0,  "Hz" },
 	{ 1e4,  1e3,  "KHz" },
@@ -190,12 +195,6 @@ static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ -1.0, -1.0,  NULL }
 };
 
-/* scaling factor */
-typedef struct {
-	const char ch;			/* Scaling suffix */
-	const uint64_t scale;		/* Amount to scale by */
-} scale_t;
-
 static const scale_t second_scales[] = {
 	{ 's',	1 },
 	{ 'm',	60 },
@@ -204,6 +203,15 @@ static const scale_t second_scales[] = {
 	{ 'w',  7 * 24 * 3600 },
 	{ 'y',  365 * 24 * 3600 },
 	{ ' ',  INT64_MAX },
+};
+
+static const proc_stat_fields_t fields[] = {
+	{ 0x0000ca52, offsetof(proc_stat_t, irq) },		/* intr */
+	{ 0x01fd11a1, offsetof(proc_stat_t, softirq) },		/* softirq */
+	{ 0x0000d8b4, offsetof(proc_stat_t, ctxt) },		/* ctxt */
+	{ 0xa114a557, offsetof(proc_stat_t, running) },		/* procs_running */
+	{ 0xa1582f8c, offsetof(proc_stat_t, blocked) },		/* procs_blocked */
+	{ 0x7fcb299b, offsetof(proc_stat_t, processes) },	/* processes */
 };
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
@@ -1263,36 +1271,32 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 {
 	FILE *fp;
 	char buffer[4096];
-	unsigned int got_flags = 0;
 
 	memset(proc_stat, 0, sizeof(proc_stat_t));
 
 	fp = fopen("/proc/stat", "r");
-	if (UNLIKELY(!fp)) {
+	if (UNLIKELY(!fp))
 		return -1;
-	}
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		if (!strncmp(buffer, "intr ", 5)) {
-			proc_stat->irq = (uint64_t)atoll(buffer + 5);
-			got_flags |= PROC_STAT_SCN_IRQ;
-		} else if (!strncmp(buffer, "softirq ", 8)) {
-			proc_stat->softirq = (uint64_t)atoll(buffer + 8);
-			got_flags |= PROC_STAT_SCN_SOFTIRQ;
-		} else if (!strncmp(buffer, "ctxt ", 5)) {
-			proc_stat->ctxt = (uint64_t)atoll(buffer + 5);
-			got_flags |= PROC_STAT_SCN_CTXT;
-		} else if (!strncmp(buffer, "procs_running ", 14)) {
-			proc_stat->running = (uint64_t)atoll(buffer + 14);
-			got_flags |= PROC_STAT_SCN_PROCS_RUN;
-		} else if (!strncmp(buffer, "procs_blocked ", 14)) {
-			proc_stat->blocked = (uint64_t)atoll(buffer + 14);
-			got_flags |= PROC_STAT_SCN_PROCS_BLK;
-		} else if (!strncmp(buffer, "processes ", 10)) {
-			proc_stat->processes = (uint64_t)atoll(buffer + 10);
-			got_flags |= PROC_STAT_SCN_PROCS;
+		register char *ptr = buffer;
+		register uint32_t hash = 0;
+		size_t i;
+
+		while (*ptr != ' ') {
+			if (*ptr == '\0')
+				goto next;
+			hash <<= 3;
+			hash ^= *ptr;
+			ptr++;
 		}
-		if ((got_flags & PROC_STAT_SCN_ALL) == PROC_STAT_SCN_ALL)
-			break;
+		for (i = 0; i < SIZEOF_ARRAY(fields); i++) {
+			char *dummy;
+			if (hash == fields[i].hash) {
+				*((uint64_t *)(((uint8_t *)proc_stat) + fields[i].offset)) = strtouint64(ptr + 1, &dummy);
+				break;
+			}
+		}
+next:		;
 	}
 	fclose(fp);
 	return 0;
@@ -1793,7 +1797,8 @@ int main(int argc, char **argv)
 	proc_stat_new = &proc_stats[1];
 	time_now = time_start = gettime_to_double();
 	get_cpustats(cpu_stats_old, time_now);
-	get_proc_stat(proc_stat_old);
+	if (opt_flags & OPT_EXTRA_STATS)
+		get_proc_stat(proc_stat_old);
 	nr_ticks = get_ticks();
 
 	while (!stop_cpustat && (forever || count--)) {
@@ -1834,11 +1839,12 @@ int main(int argc, char **argv)
 		total_ticks += nr_ticks;
 		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
-		get_proc_stat(proc_stat_new);
-
-		proc_stat_diff(proc_stat_old, proc_stat_new, &proc_stat_delta);
 		if (opt_flags & OPT_EXTRA_STATS) {
 			double avg_cpu_freq = cpu_freq_average(max_cpus);
+
+			get_proc_stat(proc_stat_new);
+			proc_stat_diff(proc_stat_old, proc_stat_new, &proc_stat_delta);
+
 			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
