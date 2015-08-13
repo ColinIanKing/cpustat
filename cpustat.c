@@ -839,7 +839,7 @@ static void samples_dump(
 				double duration =
 					duration_round(sdi->time_delta);
 				fprintf(fp,",%f",
-					(duration == 0.0) ? 0.0 :
+					(duration < 0.01) ? 0.0 :
 					100.0 * (double)sdi->delta /
 					(duration * (double)nr_ticks));
 			} else
@@ -933,8 +933,8 @@ static void samples_distribution(const uint64_t nr_ticks)
 		return;
 	}
 
-	if (max - min == 0.0) {
-		printf("Range is zero, cannot compute distribution\n");
+	if (max - min < 0.01) {
+		printf("Range is too small, cannot compute distribution\n");
 		return;
 	}
 	division = ((max * 1.000001) - min) / (MAX_DIVISIONS);
@@ -1200,7 +1200,7 @@ static void cpu_stat_diff(
 {
 	int i;
 	cpu_stat_t *sorted = NULL;
-	const bool do_sample_add = !(opt_flags & OPT_SAMPLES);
+	const bool do_sample_add = (opt_flags & OPT_SAMPLES);
 
 	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs;
@@ -1459,7 +1459,7 @@ static void get_cpustats(
 
 /*
  *  cpu_freq_average()
- *	get averagr CPU frequency
+ *	get average CPU frequency
  */
 static double cpu_freq_average(uint32_t max_cpus)
 {
@@ -1481,9 +1481,10 @@ static double cpu_freq_average(uint32_t max_cpus)
 			(void)close(fd);
 			if (LIKELY(ret > 0)) {
 				double freq;
+				char *dummy;
 
 				buffer[ret] = '\0';
-				freq = 1000.0 * (double)atoll(buffer);
+				freq = 1000.0 * (double)strtouint64(buffer, &dummy);
 				total_freq += freq;
 				n++;
 			}
@@ -1755,8 +1756,8 @@ int main(int argc, char **argv)
 	}
 	if (optind < argc) {
 		duration_secs = atof(argv[optind++]);
-		if (duration_secs < 0.1) {
-			fprintf(stderr, "Duration must 0.5 or more\n");
+		if (duration_secs < 0.333) {
+			fprintf(stderr, "Duration must 0.333 or more\n");
 			exit(EXIT_FAILURE);
 		}
 	}
