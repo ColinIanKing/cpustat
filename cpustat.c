@@ -1244,17 +1244,17 @@ static void cpu_stat_diff(
 		while (sorted) {
 			double cpu_u_usage =
 				100.0 * (double)sorted->udelta /
-				(duration * (double)(nr_ticks));
+				(double)(nr_ticks);
 			double cpu_s_usage =
 				100.0 * (double)sorted->sdelta /
-				(duration * (double)(nr_ticks));
+				(double)(nr_ticks);
 			double cpu_t_usage = cpu_u_usage + cpu_s_usage;
 
 			if ((n_lines == -1) || (j < n_lines)) {
 				j++;
 				if (cpu_t_usage > 0.0)
 					info_dump(sorted->udelta, sorted->sdelta,
-						nr_ticks * duration, sorted->info,
+						nr_ticks, sorted->info,
 						&cpu_u_total, &cpu_s_total);
 			}
 			sorted = sorted->sorted_usage_next;
