@@ -44,7 +44,7 @@ cpustat.8.gz: cpustat.8
 dist:
 	rm -rf cpustat-$(VERSION)
 	mkdir cpustat-$(VERSION)
-	cp -rp Makefile cpustat.c cpustat.8 COPYING cpustat-$(VERSION)
+	cp -rp README Makefile cpustat.c cpustat.8 COPYING cpustat-$(VERSION)
 	tar -zcf cpustat-$(VERSION).tar.gz cpustat-$(VERSION)
 	rm -rf cpustat-$(VERSION)
 
