@@ -875,11 +875,9 @@ static inline int max_processors(void)
  *	CPU distribution()
  */
 static void cpu_distribution(
-	const double duration,
-	uint64_t nr_ticks)
+	const uint64_t total_ticks)
 {
 	cpu_info_t *cpu_info;
-	double total_ticks = duration * (double)nr_ticks;
 	int i, cpu_max = max_processors();
 	uint64_t utotal[cpu_max], stotal[cpu_max];
 
@@ -897,8 +895,8 @@ static void cpu_distribution(
 	for (i = 0; i < cpu_max; i++)
 		printf("%5d %6.2f %6.2f\n",
 			i,
-			100.0 * (double)utotal[i] / total_ticks,
-			100.0 * (double)stotal[i] / total_ticks);
+			100.0 * (double)utotal[i] / (double)total_ticks,
+			100.0 * (double)stotal[i] / (double)total_ticks);
 }
 
 
@@ -1872,7 +1870,7 @@ int main(int argc, char **argv)
 	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, total_ticks, samples);
 	if (opt_flags & OPT_DISTRIBUTION) {
 		samples_distribution(nr_ticks);
-		cpu_distribution(time_now - time_start, nr_ticks);
+		cpu_distribution(total_ticks);
 	}
 	cpu_stat_free_contents(cpu_stats_old);
 	cpu_stat_free_contents(cpu_stats_new);
