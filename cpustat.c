@@ -206,12 +206,12 @@ static const scale_t second_scales[] = {
 };
 
 static const proc_stat_fields_t fields[] = {
-	{ 0x0000ca52, offsetof(proc_stat_t, irq) },		/* intr */
-	{ 0x01fd11a1, offsetof(proc_stat_t, softirq) },		/* softirq */
-	{ 0x0000d8b4, offsetof(proc_stat_t, ctxt) },		/* ctxt */
-	{ 0xa114a557, offsetof(proc_stat_t, running) },		/* procs_running */
-	{ 0xa1582f8c, offsetof(proc_stat_t, blocked) },		/* procs_blocked */
-	{ 0x7fcb299b, offsetof(proc_stat_t, processes) },	/* processes */
+	{ 0x0000ca52, offsetof(proc_stat_t, irq) },	/* intr */
+	{ 0x01fd11a1, offsetof(proc_stat_t, softirq) },	/* softirq */
+	{ 0x0000d8b4, offsetof(proc_stat_t, ctxt) },	/* ctxt */
+	{ 0xa114a557, offsetof(proc_stat_t, running) },	/* procs_running */
+	{ 0xa1582f8c, offsetof(proc_stat_t, blocked) },	/* procs_blocked */
+	{ 0x7fcb299b, offsetof(proc_stat_t, processes) },/* processes */
 };
 
 static cpu_stat_t *cpu_stat_free_list;	/* List of free'd cpu stats */
@@ -471,7 +471,8 @@ static char *get_pid_cmdline(const pid_t pid)
 		statok = true;
 		for (info = pid_info_hash[h]; info; info = info->next) {
 			if (info->pid == pid) {
-				if (statbuf.st_ctim.tv_sec > info->st_ctim.tv_sec)
+				if (statbuf.st_ctim.tv_sec >
+				    info->st_ctim.tv_sec)
 					break;
 				(void)close(fd);
 				return info->cmdline;
@@ -514,7 +515,10 @@ static char *get_pid_cmdline(const pid_t pid)
 
 no_cmd:
 	if (statok) {
-		/* We may be re-using a stale old PID, or we may need a new info */
+		/*
+		 * We may be re-using a stale old PID, or we may need
+		 * a new info struct 
+		 */
 		if (!info)
 			info = malloc(sizeof(pid_info_t));
 		if (LIKELY((info != NULL))) {
@@ -789,7 +793,8 @@ static void samples_dump(
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
-			info_dump(sorted_cpu_infos[i]->utotal, sorted_cpu_infos[i]->stotal,
+			info_dump(sorted_cpu_infos[i]->utotal,
+				sorted_cpu_infos[i]->stotal,
 				total_ticks, sorted_cpu_infos[i],
 				&cpu_u_total, &cpu_s_total);
 		}
@@ -940,7 +945,8 @@ static void samples_distribution(const uint64_t nr_ticks)
 		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
-			double val = 100.0 * (double)sdi->delta / (double)nr_ticks;
+			double val = 100.0 * (double)sdi->delta
+				/ (double)nr_ticks;
 			int v = floor(val - min) / division;
 			v = v > MAX_DIVISIONS - 1 ? MAX_DIVISIONS -1 : v;
 			bucket[v]++;
@@ -1157,7 +1163,8 @@ static cpu_stat_t OPTIMIZE3 HOT *cpu_stat_find(
 	const char *comm = needle->info->comm;
 	const pid_t pid = needle->info->pid;
 
-	for (ts = haystack[hash_djb2a(needle->info->pid, needle->info->comm)]; ts; ts = ts->next)
+	for (ts = haystack[hash_djb2a(needle->info->pid, needle->info->comm)];
+	     ts; ts = ts->next)
 		if ((pid == ts->info->pid) && (strcmp(comm, ts->info->comm) == 0))
 			return ts;
 
@@ -1220,7 +1227,8 @@ static void cpu_stat_diff(
 					found->info->total += cs->delta;
 					found->info->utotal += cs->udelta;
 					found->info->stotal += cs->sdelta;
-					found->info->ticks = cs->utime + cs->stime;
+					found->info->ticks = cs->utime +
+							     cs->stime;
 				}
 			} else {
 				cs->delta = cs->udelta = cs->sdelta = 0;
@@ -1290,7 +1298,9 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 		for (i = 0; i < SIZEOF_ARRAY(fields); i++) {
 			char *dummy;
 			if (hash == fields[i].hash) {
-				*((uint64_t *)(((uint8_t *)proc_stat) + fields[i].offset)) = strtouint64(ptr + 1, &dummy);
+				*((uint64_t *)(((uint8_t *)proc_stat) +
+					fields[i].offset)) =
+						strtouint64(ptr + 1, &dummy);
 				break;
 			}
 		}
@@ -1321,7 +1331,9 @@ static inline void proc_stat_diff(
  *  proc_stat_dump()
  *	dump out proc_stat stats
  */
-static inline void proc_stat_dump(const proc_stat_t *delta, const double duration)
+static inline void proc_stat_dump(
+	const proc_stat_t *delta,
+	const double duration)
 {
 	double scale = 1.0 / duration;
 	printf("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
@@ -1382,9 +1394,9 @@ static void get_cpustats(
 		/* 3173 (a.out) R 3093 3173 3093 34818 3173 4202496 165 0 0 0 3194 0 */
 
 		/*
-		 *  We used to use scanf but this is really expensive and it is far
-		 *  faster to parse the data via a more tedious means of scanning down
-		 *  the buffer manually..
+		 *  We used to use scanf but this is really expensive and it
+		 *  is far faster to parse the data via a more tedious means
+		 *  of scanning down the buffer manually..
 		 */
 		info.pid = (pid_t)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
@@ -1397,7 +1409,8 @@ static void get_cpustats(
 			continue;
 		ptr++;
 		tmp = info.comm;
-		while ((*ptr != '\0') && (*ptr !=')') && ((size_t)(tmp - info.comm) < sizeof(info.comm)))
+		while ((*ptr != '\0') && (*ptr !=')') &&
+		       ((size_t)(tmp - info.comm) < sizeof(info.comm)))
 			*tmp++ = *ptr++;
 		if (UNLIKELY(*ptr != ')'))
 			continue;
@@ -1443,9 +1456,11 @@ static void get_cpustats(
 		info.processor = (int)strtouint32(ptr, &endptr);
 		if (UNLIKELY(endptr == ptr))
 			continue;
-		if (UNLIKELY(((opt_flags & OPT_IGNORE_SELF) && (my_pid == info.pid))))
+		if (UNLIKELY(((opt_flags & OPT_IGNORE_SELF) &&
+			     (my_pid == info.pid))))
 			continue;
-		if (UNLIKELY(((opt_flags & OPT_MATCH_PID) && (opt_pid != info.pid))))
+		if (UNLIKELY(((opt_flags & OPT_MATCH_PID) &&
+			     (opt_pid != info.pid))))
 			continue;
 
 		info.total = 0;
@@ -1650,17 +1665,16 @@ int main(int argc, char **argv)
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **cpu_stats_tmp;
 	struct sigaction new_action;
 	proc_stat_t proc_stats[2];
-	proc_stat_t *proc_stat_old, *proc_stat_new, *proc_stat_tmp, proc_stat_delta;
+	proc_stat_t *proc_stat_old, *proc_stat_new,
+		    *proc_stat_tmp, proc_stat_delta;
 	uint32_t max_cpus = sysconf(_SC_NPROCESSORS_CONF);
-	double duration_secs = 1.0;
-	double time_start, time_now;
+	double duration_secs = 1.0, time_start, time_now;
 	int64_t count = 1, t = 1;
 	uint64_t nr_ticks, total_ticks = 0;
 	int32_t n_lines = -1;
 	uint32_t samples = 0;
 	bool forever = true;
 	int i;
-
 
 	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 
@@ -1843,8 +1857,8 @@ int main(int argc, char **argv)
 			double avg_cpu_freq = cpu_freq_average(max_cpus);
 
 			get_proc_stat(proc_stat_new);
-			proc_stat_diff(proc_stat_old, proc_stat_new, &proc_stat_delta);
-
+			proc_stat_diff(proc_stat_old, proc_stat_new,
+					&proc_stat_delta);
 			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
@@ -1868,7 +1882,8 @@ int main(int argc, char **argv)
 	}
 
 	time_now = gettime_to_double();
-	samples_dump(csv_results, time_now - time_start, time_now, nr_ticks, total_ticks, samples);
+	samples_dump(csv_results, time_now - time_start, time_now,
+		nr_ticks, total_ticks, samples);
 	if (opt_flags & OPT_DISTRIBUTION) {
 		samples_distribution(nr_ticks);
 		cpu_distribution(total_ticks);
