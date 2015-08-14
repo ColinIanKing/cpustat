@@ -30,7 +30,7 @@ CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"' -O2
 # --param max-reload-search-insns=32768 \
 # --param max-cselib-memory-locations=32768
 #
-BINDIR=/usr/bin
+BINDIR=/usr/sbin
 MANDIR=/usr/share/man/man8
 
 cpustat: cpustat.o Makefile
