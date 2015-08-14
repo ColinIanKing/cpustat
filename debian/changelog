@@ -1,3 +1,65 @@
+cpustat (0.01.19-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Minor fixes that got introduced over the past week:
+  * Make proc_stat scanning more efficient and do only when -x selected
+  * Add Author in comment block
+  * Makefile: Add copyright and comment on some useful gcc options
+  * Init cpu_info_t fields
+  * Nullify sdl->sample_delta_item_list, re-arrange some fields
+  * Add LIKELY/UNLIKELY optimisation hints
+  * Optimise cpu_info_find, don't alloc comm field anymore
+  * Use malloc instead of calloc since we fill all the fields in the structs
+  * Pass cpu_stat info into cpu_stat_add and replace calloc with malloc
+  * Hash on comm and pid rather than making up an ident
+  * Optimise parsing in cpus_online
+  * Avoid call to sample_add if not required
+  * Fix theoretical overflow
+  * Correct toctou on cmdline
+  * Avoid division by zero on total_ticks
+  * Ensure end of buffer is null terminated
+  * Remove redundant d > 9 check, will never happen with a modulo 10
+  * Fix fd leak
+  * Fix % output in banner now that we are not using printf
+  * Use optimised string to integer parsing as this occurs frequently
+  * Save ~2000 cycles per banner dump
+  * Optimise load_average to not use sscanf(), saves ~200K cycles
+  * Optimise /proc/$pid/stat parsing, saves ~500K cycles per iteration
+  * Make pid hash table relatively large prime
+  * Re-use old PIDs infos
+  * More optimisations
+  * Add some minor speed optimisations, saves a few million cycles
+  * Add new tasks rate stat in -x option output
+  * Add width specifier in scanf
+  * Remove proc_stat alloca()
+  * Remove alloca in cpu_distribution
+  * Reduce scope of buffer
+  * Make pid_info_hash_free static
+  * Add more comments
+  * Fix accuracy in ticks when accumulating ticks with interrupted select
+  * Use uint64_t as clock ticks type
+  * Break out of proc_stat parsing when we have all the necessary data
+  * double_to_timeval: pass tv rather than return it.
+  * Add more comments
+  * Enhance distribution stats and expand manual
+  * Pass nr_ticks rather than re-compute it
+  * Minor correction in manual
+  * Add caching to proc cmdline
+  * Don't add to sorted list cpu_stats with zero total time
+  * Reduce scope of buffer
+  * Add more comments
+  * Add alloca failure checks
+  * Correct division in cpu freq computation
+  * Add some /proc/stat stats with -x option
+  * Correct the life time of the process stats in grand total
+  * Add State (S), Processor and Time used stats
+  * Minor re-formatting
+  * Add -x option (extra CPU info)
+  * Add -D distribution option
+  * Add -g option
+
+ -- Colin King <colin.king@canonical.com>  Fri, 14 Aug 2015 13:11:35 +0100
+
 cpustat (0.01.18-1) unstable; urgency=medium
 
   * Makefile: bump version
