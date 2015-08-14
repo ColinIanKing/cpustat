@@ -1325,13 +1325,13 @@ static inline void proc_stat_dump(const proc_stat_t *delta, const double duratio
 {
 	double scale = 1.0 / duration;
 	printf("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
-		"%.1f new tasks/s, %.1f running, %.1f blocked\n",
+		"%.1f new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked\n",
 		scale * delta->ctxt,
 		scale * delta->irq,
 		scale * delta->softirq,
 		scale * delta->processes,
-		scale * delta->running,
-		scale * delta->blocked);
+		delta->running,
+		delta->blocked);
 }
 
 /*
