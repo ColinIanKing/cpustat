@@ -1321,16 +1321,17 @@ static inline void proc_stat_diff(
  *  proc_stat_dump()
  *	dump out proc_stat stats
  */
-static inline void proc_stat_dump(const proc_stat_t *delta)
+static inline void proc_stat_dump(const proc_stat_t *delta, const double duration)
 {
-	printf("%" PRIu64 " Ctxt/s, %" PRIu64 " IRQ/s, %" PRIu64 " softIRQ/s, "
-		"%" PRIu64 " new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked\n",
-		delta->ctxt,
-		delta->irq,
-		delta->softirq,
-		delta->processes,
-		delta->running,
-		delta->blocked);
+	double scale = 1.0 / duration;
+	printf("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
+		"%.1f new tasks/s, %.1f running, %.1f blocked\n",
+		scale * delta->ctxt,
+		scale * delta->irq,
+		scale * delta->softirq,
+		scale * delta->processes,
+		scale * delta->running,
+		scale * delta->blocked);
 }
 
 /*
@@ -1848,7 +1849,7 @@ int main(int argc, char **argv)
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
 				cpus_online());
-			proc_stat_dump(&proc_stat_delta);
+			proc_stat_dump(&proc_stat_delta, duration);
 		}
 
 		cpu_stat_diff(duration, nr_ticks, n_lines, time_now,
