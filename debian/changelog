@@ -1,3 +1,10 @@
+cpustat (0.01.20-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Remove double scaling by duration in stats
+
+ -- Colin King <colin.king@canonical.com>  Fri, 14 Aug 2015 13:43:33 +0100
+
 cpustat (0.01.19-1) unstable; urgency=medium
 
   * Makefile: bump version
