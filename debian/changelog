@@ -1,3 +1,20 @@
+cpustat (0.01.21-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Update debian/compat and control to version 9 and add Homepage
+  * Update manual, rewrite some sections and add an extra example
+  * Add README
+  * Some minor tweaks for 80 char wide tty formatting
+  * Remove debian/cpustat.install, not needed now
+  * Make bindir /usr/sbin
+  * Update year in debian/copyright
+  * Re-work debian/control description text
+  * Don't scale blocked and running
+  * Scale proc stats by duration
+  * Scale distribution of CPU utilisation per CPU appropriately
+
+ -- Colin King <colin.king@canonical.com>  Fri, 14 Aug 2015 19:40:00 +0100
+
 cpustat (0.01.20-1) unstable; urgency=medium
 
   * Makefile: bump version
