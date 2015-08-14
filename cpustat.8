@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH CPUSTAT 8 "February 13, 2015"
+.TH CPUSTAT 8 "August 14, 2015"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -26,11 +26,17 @@ cpustat \- a tool to measure CPU utilization.
 .br
 
 .SH DESCRIPTION
-cpustat is a program that dumps the CPU utilization of current
-running tasks.  Statisics are based on snapshots of processes in the system
-and may not be entirely accurate if many short lived processes exist in
-a time shorter than the sample time.  cpustat is useful to gain understanding
-of long lived process activity in a system, such as daemons, kernel threads, and general user processes.
+cpustat is a program that dumps the CPU utilization of current running tasks
+(that is, processes or kernel threads).  cpustat is useful to monitor the
+activity of long lived processes in a system, such as daemons,
+kernel threads as well as typical user processes.
+.P
+cpustat shows only the tasks that have measured
+any change in their CPU activity between each sample interval (as indicated
+by an increment in the CPU tick count stats of utime and stime in
+/proc/$pid/stat).  cpustat thus only reports activity of busy tasks that are
+still alive at the time of each sample snapshot and hence will not account
+for very short lived processes that exist between each sample period.
 .P
 For each running task that has consumed some CPU during the sample time, the
 following information is displayed:
@@ -67,11 +73,11 @@ Process command line information (from process cmdline or comm fields)
 T}
 .TE
 .P
-cpustat was designed to try and minimize the CPU overhead of performing the
-actual process statistics gathering. It is ideal for small embedded devices where
-CPU is limited and measuring CPU utilisation can actually affect the overall
-CPU statistics. For this reason, it is not as complex as tools such as top
-that have a more feature rich user interface and wider functionality.
+cpustat was designed to try and minimize the CPU overhead of process statistics
+gathering and reporting. It is therefore ideal for small embedded devices where
+CPU is limited where measuring CPU utilisation may affect the overall
+CPU statistics. For this reason, it is not as complex as tools such as top(1)
+that have a more feature rich user interface.
 .SH OPTIONS
 cpustat options are as follow:
 .TP
@@ -139,24 +145,26 @@ calculate total CPU utilisation.
 show extra CPU related statistics, namely: CPU load average over 1, 5 and 10 minutes, CPU frequency (average of all online CPU frequencies), number of CPUs online.
 .SH EXAMPLES
 .LP
+cpustat
+.IP
 Dump CPU stats every second until stopped.
-.RS 8
-sudo cpustat
-.RE
 .LP
+cpustat \-n 20 60
+.IP
 Dump the top 20 CPU consuming tasks every 60 seconds until stopped.
-.RS 8
-sudo cpustat \-n 20 60
-.RE
 .LP
+cpustat 10 5
+.IP
 Dump CPU stats every 10 seconds just 5 times.
-.RS 8
-sudo cpustat 10 5
-.RE
+.LP
+cpustat \-x \-D \-a 1 300
+.IP
+Gather stats every second for 5 minutes with extra CPU stats and show CPU utilisation distributions per task and per CPU at the end of the run. Also, scale CPU utilisation by the number of CPUs so that 100% utilisation means 100% of all CPUs rather than 100% of 1 CPU.
 .SH SEE ALSO
+.BR forkstat (8),
 .BR eventstat (8),
-.BR powertop (8),
-.BR vmstat (8)
+.BR vmstat (8),
+.BR top (1)
 .SH AUTHOR
 cpustat was written by Colin King <colin.king@canonical.com>
 .PP
