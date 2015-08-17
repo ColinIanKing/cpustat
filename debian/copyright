@@ -1,11 +1,10 @@
-Format-Specification: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Name: cpustat
-Maintainer: Colin King <colin.king@ubuntu.com>
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: eventstat
+Upstream-Contact: Colin King <colin.king@canonical.com>
 Source: git://kernel.ubuntu.com/cking/cpustat.git
 
 Files: *
 Copyright: 2013-2015, Canonical Ltd
-
 License: GPL-2+
-On Debian systems, the complete text of the GNU General Public
-License can be found in `/usr/share/common-licenses/GPL-2'.
+ On Debian systems, the complete text of the GNU General Public
+ License can be found in `/usr/share/common-licenses/GPL-2'.
