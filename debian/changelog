@@ -1,3 +1,12 @@
+cpustat (0.01.22-1) unstable; urgency=medium
+
+  * Prepare for inital upload to Debian: (Closes: #795914)
+  * debian/copyright: update format field
+  * debian/control: change email address
+  * Makefile: bump version
+
+ -- Colin King <colin.king@canonical.com>  Mon, 17 Aug 2015 15:11:38 -0700
+
 cpustat (0.01.21-1) unstable; urgency=medium
 
   * Makefile: bump version
