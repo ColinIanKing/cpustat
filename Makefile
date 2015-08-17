@@ -18,7 +18,7 @@
 # Author: Colin Ian King <colin.king@canonical.com>
 #
 
-VERSION=0.01.21
+VERSION=0.01.22
 
 CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"' -O2
 
