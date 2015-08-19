@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9)
 Homepage: http://kernel.ubuntu.com/~cking/cpustat
 
 Package: cpustat
-Architecture: any
+Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: periodic cpu utilization statistics
  cpustat periodically reports the current CPU utilization of running tasks
