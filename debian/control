@@ -1,5 +1,5 @@
 Source: cpustat
-Section: devel
+Section: admin
 Priority: optional
 Maintainer: Colin King <colin.king@canonical.com>
 Standards-Version: 3.9.6
