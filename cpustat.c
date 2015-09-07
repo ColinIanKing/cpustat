@@ -919,7 +919,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 	memset(bucket, 0, sizeof(bucket));
 
 	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
-		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
+		sample_delta_item_t *sdi;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
 			double val = scale * (double)sdi->delta;
