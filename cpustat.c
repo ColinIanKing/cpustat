@@ -608,7 +608,7 @@ static void OPTIMIZE3 HOT sample_add(
 		sdl->next = NULL;
 		sdl->whence = whence;
 		sdl->sample_delta_item_list = NULL;
-		if (sample_delta_list_head)
+		if (sample_delta_list_tail)
 			sample_delta_list_tail->next = sdl;
 		else
 			sample_delta_list_head = sdl;
