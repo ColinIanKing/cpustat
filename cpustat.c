@@ -1816,7 +1816,7 @@ int main(int argc, char **argv)
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
-		double secs, duration = duration_secs, right_now;
+		double secs, duration, right_now;
 
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
