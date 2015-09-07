@@ -1112,7 +1112,6 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 	const pid_t pid = info->pid;
 
 	h = hash_djb2a(pid, comm);
-	cs = cpu_stats[h];
 
 	for (cs = cpu_stats[h]; cs; cs = cs->next) {
 		if ((pid == cs->info->pid) && (strcmp(cs->info->comm, comm) == 0)) {
