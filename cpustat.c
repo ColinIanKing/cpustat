@@ -942,7 +942,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 	}
 	division = ((max * 1.000001) - min) / (MAX_DIVISIONS);
 	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
-		sample_delta_item_t *sdi = sdl->sample_delta_item_list;
+		sample_delta_item_t *sdi;
 
 		for (sdi = sdl->sample_delta_item_list; sdi; sdi = sdi->next) {
 			double val = 100.0 * (double)sdi->delta
