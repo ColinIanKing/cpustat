@@ -50,6 +50,8 @@ dist:
 
 clean:
 	rm -f cpustat cpustat.o cpustat.8.gz
+	rm -f cpustat-$(VERSION).tar.gz
+
 
 install: cpustat cpustat.8.gz
 	mkdir -p ${DESTDIR}${BINDIR}
