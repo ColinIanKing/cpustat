@@ -1,3 +1,15 @@
+cpustat (0.01.24-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Makefile: remove dist tarball on make clean
+  * check if sample_delta_list_tail is null rather than the head
+  * Don't initialise duration, it gets set later
+  * Remove another dead assignment to sdi
+  * Remove dead assignment to sdi
+  * Remove dead assignment to cs
+
+ -- Colin King <colin.king@canonical.com>  Wed, 9 Sep 2015 11:39:42 +0100
+
 cpustat (0.01.23-1) unstable; urgency=medium
 
   * Makefile: bump version
