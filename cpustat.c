@@ -886,6 +886,12 @@ static void cpu_distribution(
 	int i, cpu_max = max_processors();
 	uint64_t utotal[cpu_max], stotal[cpu_max];
 
+	if (!total_ticks) {
+		printf("Cannot calculate distribution of CPU utilisation, "
+			"(zero clock tick)\n");
+		return;
+	}
+
 	memset(utotal, 0, sizeof(utotal));
 	memset(stotal, 0, sizeof(stotal));
 
