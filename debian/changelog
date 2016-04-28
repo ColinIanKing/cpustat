@@ -1,3 +1,13 @@
+cpustat (0.01.26-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Update date in manual
+  * debian/control: update standards version to 3.9.7
+  * Fix spelling mistake in manual, onlt -> only
+  * Update copyright year to 2016
+
+ -- Colin King <colin.king@canonical.com>  Thu, 28 Apr 2016 10:10:10 +0100
+
 cpustat (0.01.25-1) unstable; urgency=medium
 
   * Makefile: bump version
