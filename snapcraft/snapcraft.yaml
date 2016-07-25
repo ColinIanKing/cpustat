@@ -6,13 +6,11 @@ confinement: strict
 
 parts:
     cpustat:
-        # Get more information about plugins by running
-        # snapcraft help plugins
-        # and more information about the available plugins
-        # by running
-        # snapcraft list-plugins
         plugin: make
         source: git://kernel.ubuntu.com/cking/cpustat
+        build-packages:
+            - gcc
+            - make
 apps:
     cpustat:
         command: usr/sbin/cpustat
