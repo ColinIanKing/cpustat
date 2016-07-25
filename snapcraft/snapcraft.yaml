@@ -1,0 +1,19 @@
+name: cpustat
+version: 0
+summary: periodic cpu utilization statistics
+description: cpustat periodically reports the current CPU utilization of running tasks and can optionally report per CPU and per task utilization statistics at the end of a run.  cpustat has been designed and optimized to use a minimal amount of CPU cycles to monitor a system hence it is a light weight alternative to traditional process monitoring tools such as top.
+confinement: strict
+
+parts:
+    cpustat:
+        # Get more information about plugins by running
+        # snapcraft help plugins
+        # and more information about the available plugins
+        # by running
+        # snapcraft list-plugins
+        plugin: make
+        source: git://kernel.ubuntu.com/cking/cpustat
+apps:
+    cpustat:
+        command: usr/sbin/cpustat
+
