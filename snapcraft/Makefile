@@ -20,8 +20,7 @@ get_icon:
 	fi;
 
 clean:
-	rm -rf setup
+	rm -rf setup *.snap
 	snapcraft clean
-	rm *.snap
 	cat snapcraft.yaml | sed 's/version: .*/version: 0/' > snapcraft-tmp.yaml
 	mv snapcraft-tmp.yaml snapcraft.yaml
