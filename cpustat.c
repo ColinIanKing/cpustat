@@ -515,18 +515,30 @@ static char *get_pid_cmdline(const pid_t pid)
 
 no_cmd:
 	if (statok) {
+		bool new_info = false;
 		/*
 		 * We may be re-using a stale old PID, or we may need
 		 * a new info struct 
 		 */
-		if (!info)
+		if (!info) {
 			info = malloc(sizeof(pid_info_t));
+			new_info = true;
+		}
+
+		/*
+		 *  Don't worry if we can't allocate cache info
+		 *  as we can fetch it next time if need be
+		 */
 		if (LIKELY((info != NULL))) {
 			info->pid = pid;
 			info->cmdline = ptr;
-			info->next = pid_info_hash[h];
 			info->st_ctim = statbuf.st_ctim;
-			pid_info_hash[h] = info;
+
+			/* Only append to hash list if new */
+			if (new_info) {
+				info->next = pid_info_hash[h];
+				pid_info_hash[h] = info;
+			}
 		}
 	}
 	return ptr;
