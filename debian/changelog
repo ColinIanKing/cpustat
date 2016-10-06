@@ -1,3 +1,18 @@
+cpustat (0.01.28-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Makefile: add mascot and snapcraft directories to make dist rule
+  * cpustat: only add pid info to hash table if it is new (LP: #1631050)
+  * snapcraft: Makefile: fix removal errors of snap files
+  * snapcraft: Makefile: add auto versioning
+  * snapcraft.yaml: add build-packages
+  * Add snapcraft Makefile
+  * Add cpustat pngs
+  * mascot: small resize to ensure it scales perfectly to 128x128
+  * Add cpustat mascot
+
+ -- Colin King <colin.king@canonical.com>  Thu, 6 Oct 2016 17:30:00 +0100
+
 cpustat (0.01.27-1) unstable; urgency=medium
 
   * Makefile: bump version
