@@ -665,8 +665,8 @@ static inline OPTIMIZE3 HOT sample_delta_item_t *sample_find(
  */
 static int info_compare_total(const void *const item1, const void *const item2)
 {
-	cpu_info_t **info1 = (cpu_info_t **)item1;
-	cpu_info_t **info2 = (cpu_info_t **)item2;
+	cpu_info_t *const *info1 = (cpu_info_t *const *)item1;
+	cpu_info_t *const *info2 = (cpu_info_t *const *)item2;
 
 	if ((*info2)->total == (*info1)->total)
 		return 0;
