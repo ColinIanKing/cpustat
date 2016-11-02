@@ -856,10 +856,10 @@ static void samples_dump(
 			sample_delta_item_t *sdi =
 				sample_find(sdl, sorted_cpu_infos[i]);
 			if (sdi) {
-				double duration =
+				double tmp_duration =
 					duration_round(sdi->time_delta);
 				fprintf(fp,",%f",
-					(duration < 0.01) ? 0.0 :
+					(tmp_duration < 0.01) ? 0.0 :
 					100.0 * (double)sdi->delta /
 					(duration * (double)nr_ticks));
 			} else
