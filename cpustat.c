@@ -70,6 +70,9 @@
 #define _VER_(major, minor, patchlevel) \
 	((major * 10000) + (minor * 100) + patchlevel)
 
+#define FLOAT_TINY		(0.0000001)
+#define FLOAT_CMP(a, b)		(fabs(a - b) < FLOAT_TINY)
+
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
 #if defined(__GNUC_PATCHLEVEL__)
 #define NEED_GNUC(major, minor, patchlevel) \
@@ -600,7 +603,7 @@ static void OPTIMIZE3 HOT sample_add(
 	sample_delta_item_t *sdi;
 
 	for (sdl = sample_delta_list_tail; sdl; sdl = sdl->prev) {
-		if (sdl->whence == whence) {
+		if (FLOAT_CMP(sdl->whence, whence)) {
 			found = true;
 			break;
 		}
