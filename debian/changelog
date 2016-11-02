@@ -1,3 +1,13 @@
+cpustat (0.01.29-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Fix variable shadowing on variable duration
+  * Use FLOAT_CMP helper macro to perform slop on float compares
+  * Constify variables in sort compare helper
+  * Makefile: add PEDANTIC build flags
+
+ -- Colin King <colin.king@canonical.com>  Wed, 2 Nov 2016 14:24:41 -0600
+
 cpustat (0.01.28-1) unstable; urgency=medium
 
   * Makefile: bump version
