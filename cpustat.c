@@ -302,7 +302,7 @@ static uint64_t OPTIMIZE3 HOT strtouint64(char *str, char **endptr)
 
 		if (digit > 9)
 			break;
-		if (UNLIKELY(v >= 1844674407370955161))
+		if (UNLIKELY(v >= 1844674407370955161ULL))
 			goto do_overflow;
 		v *= 10;
 		v += digit;
