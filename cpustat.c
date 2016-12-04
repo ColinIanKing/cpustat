@@ -191,6 +191,17 @@ typedef struct {
 	uint16_t offset;
 } proc_stat_fields_t;
 
+typedef struct {
+	void (*df_setup)(void);
+	void (*df_endwin)(void);
+	void (*df_clear)(void);
+	void (*df_refresh)(void);
+	void (*df_winsize)(void);
+	void (*df_printf)(const char *fmt, ...);
+	void (*df_putc)(int ch);
+	void (*df_putstr)(char *str);
+} display_funcs_t;
+
 static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e1,  1e0,  "Hz" },
 	{ 1e4,  1e3,  "KHz" },
@@ -238,11 +249,10 @@ static uint64_t clock_ticks;		/* number of clock ticks per second */
 static pid_t opt_pid = -1;		/* PID to match against, -p option */
 
 static bool resized;			/* window resized */
-static bool curses_init;		/* curses initialised */
 static int rows = 25;			/* tty size, rows */
 static int cols = 80;			/* tty size, columns */
 
-
+static display_funcs_t df;		/* display functions */
 
 /*
  *  Attempt to catch a range of signals so
@@ -298,42 +308,45 @@ static const int signals[] = {
 };
 
 /*
- *  cpustat_endwin()
- *	call endwin if in top mode
+ *  handle_sigwinch()
+ *      flag window resize on SIGWINCH
  */
-static void cpustat_endwin(void)
+static void handle_sigwinch(int sig)
 {
-	if (curses_init) {
-		clear();
-		endwin();
+	(void)sig;
+
+	df.df_winsize();
+	resized = true;
+}
+
+/*
+ *   cpustat_top_setup
+ *	setup display in top mode
+ */
+static void cpustat_top_setup(void)
+{
+	struct sigaction sa;
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = handle_sigwinch;
+	if (sigaction(SIGWINCH, &sa, NULL) < 0) {
+		fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+			errno, strerror(errno));
+		exit(EXIT_FAILURE);
 	}
+	initscr();
+	cbreak();
+	noecho();
+	nodelay(stdscr, 1);
+	keypad(stdscr, 1);
+	curs_set(0);
 }
 
 /*
- * cpustat_clear()
- *	clear screen if in top mode
+ *  cpustat_top_winsize()
+ *	get tty size in top mode
  */
-static inline void cpustat_clear(void)
-{
-	if (curses_init)
-		clear();
-}
-
-/*
- *  cpustat_refresh()
- *	refresh screen if in top mode
- */
-static inline void cpustat_refresh(void)
-{
-	if (curses_init)
-		refresh();
-}
-
-/*
- *  cpustat_winsize()
- *	get tty size
- */
-static void cpustat_winsize(void)
+static void cpustat_top_winsize(void)
 {
 	struct winsize ws;
 
@@ -344,49 +357,141 @@ static void cpustat_winsize(void)
 }
 
 /*
- * cs_printf()
- *      cpustat printf - print to stdout or ncurses
- *	print depending on the mode
+ *  cpustat_noop()
+ *	no-operation void handler
  */
-static void cs_printf(const char *fmt, ...)
+static void cpustat_noop(void)
+{
+}
+
+
+/*
+ *  cpustat_top_endwin()
+ *	call endwin in top mode
+ */
+static void cpustat_top_endwin(void)
+{
+	cpustat_top_winsize();
+	resizeterm(rows, cols);
+	refresh();
+	resized = false;
+	clear();
+	endwin();
+}
+
+/*
+ * cpustat_top_clear()
+ *	clear screen in top mode
+ */
+static inline void cpustat_top_clear(void)
+{
+	clear();
+}
+
+/*
+ *  cpustat_top_refresh()
+ *	refresh screen in top mode
+ */
+static inline void cpustat_top_refresh(void)
+{
+	refresh();
+}
+
+/*
+ *  cpustat_normal_refresh()
+ *	refresh screen in normal tty mode
+ */
+static inline void cpustat_normal_refresh(void)
+{
+	putc('\n', stdout);
+}
+
+/*
+ * cpustat_top_printf()
+ *      cpustat printf in top mode
+ */
+static void cpustat_top_printf(const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	if (UNLIKELY(curses_init)) {
-		char buf[256];
+	char buf[256];
 
-		vsnprintf(buf, sizeof(buf), fmt, ap);
-		printw("%s", buf);
-	} else {
-		vprintf(fmt, ap);
-	}
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	printw("%s", buf);
 	va_end(ap);
 }
 
 /*
- *  cs_putc()
- *	cpustat put char
+ * cpustat_normal_printf()
+ *      cpustat printf in normal mode
  */
-static void cs_putc(int ch)
+static void cpustat_normal_printf(const char *fmt, ...)
 {
-	if (UNLIKELY(curses_init))
-		addch(ch);
-	else
-		fputc(ch, stdout);
+	va_list ap;
+
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	va_end(ap);
 }
 
 /*
- *  cs_puts()
- * 	cpustat put string
+ *  cpustat_top_putc()
+ *	cpustat put char in top mode
  */
-static void cs_puts(char *str)
+static void cpustat_top_putc(int ch)
 {
-	if (UNLIKELY(curses_init))
-		addstr(str);
-	else
-		fputs(str, stdout);
+	addch(ch);
 }
+
+/*
+ *  cpustat_nomnal_putc()
+ *	cpustat put char in normal mode
+ */
+static void cpustat_normal_putc(int ch)
+{
+	fputc(ch, stdout);
+}
+
+/*
+ *  cpustat_top_putstr)
+ * 	cpustat put string in top mode
+ */
+static void cpustat_top_putstr(char *str)
+{
+	addstr(str);
+}
+
+/*
+ *  cpustat_normal_putstr()
+ * 	cpustat put string in normal mode
+ */
+static void cpustat_normal_putstr(char *str)
+{
+	fputs(str, stdout);
+}
+
+static display_funcs_t df_top = {
+	cpustat_top_setup,
+	cpustat_top_endwin,
+	cpustat_top_clear,
+	cpustat_top_refresh,
+	cpustat_top_winsize,
+	cpustat_top_printf,
+	cpustat_top_putc,
+	cpustat_top_putstr
+};
+
+static display_funcs_t df_normal = {
+	cpustat_noop,
+	cpustat_noop,
+	cpustat_noop,
+	cpustat_normal_refresh,
+	cpustat_noop,
+	cpustat_normal_printf,
+	cpustat_normal_putc,
+	cpustat_normal_putstr
+};
 
 /*
  *  strtouint64()
@@ -621,7 +726,7 @@ no_cmd:
 		bool new_info = false;
 		/*
 		 * We may be re-using a stale old PID, or we may need
-		 * a new info struct 
+		 * a new info struct
 		 */
 		if (!info) {
 			info = malloc(sizeof(pid_info_t));
@@ -791,9 +896,9 @@ static inline void putdec(const int v)
 	register int d;
 
 	d = (v / 10);
-	cs_putc(d > 9 ? '?' : '0' + d);
+	df.df_putc(d > 9 ? '?' : '0' + d);
 	d = (v % 10);
-	cs_putc('0' + d);
+	df.df_putc('0' + d);
 }
 
 /*
@@ -802,20 +907,20 @@ static inline void putdec(const int v)
  */
 static void info_banner_dump(const double time_now)
 {
-	cs_puts("  %CPU   %USR   %SYS   PID S  CPU   Time Task");
+	df.df_putstr("  %CPU   %USR   %SYS   PID S  CPU   Time Task");
 	if (opt_flags & OPT_TIMESTAMP) {
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		cs_puts("  (");
+		df.df_putstr("  (");
 		putdec(tm.tm_hour);
-		cs_putc(':');
+		df.df_putc(':');
 		putdec(tm.tm_min);
-		cs_putc(':');
+		df.df_putc(':');
 		putdec(tm.tm_sec);
-		cs_putc(')');
+		df.df_putc(')');
 	}
-	cs_putc('\n');
+	df.df_putc('\n');
 }
 
 /*
@@ -839,7 +944,7 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	cs_printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
+	df.df_printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
 		cpu_u_usage + cpu_s_usage,
 		cpu_u_usage, cpu_s_usage,
 		info->pid,
@@ -862,7 +967,7 @@ static void info_total_dump(
 	const double s_total)
 {
 	if (opt_flags & OPT_TOTAL)
-		cs_printf("%6.2f %6.2f %6.2f Total\n",
+		df.df_printf("%6.2f %6.2f %6.2f Total\n",
 			u_total + s_total, u_total, s_total);
 }
 
@@ -904,7 +1009,7 @@ static void samples_dump(
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
-		cs_printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
+		df.df_printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
@@ -914,7 +1019,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		cs_printf("\n");
+		df.df_printf("\n");
 	}
 
 	if (!filename) {
@@ -1084,7 +1189,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 			bucket[i],
 			100.0 * (double)bucket[i] / (double)total);
 	}
-	putchar('\n');
+	putc('\n', stdout);
 }
 
 /*
@@ -1781,18 +1886,6 @@ static void show_usage(void)
 		" -X top-like curses based display mode\n");
 }
 
-/*
- *  handle_sigwinch()
- *      flag window resize on SIGWINCH
- */
-static void handle_sigwinch(int sig)
-{
-	(void)sig;
-
-	cpustat_winsize();
-	resized = true;
-}
-
 int main(int argc, char **argv)
 {
 	cpu_stat_t **cpu_stats_old, **cpu_stats_new, **cpu_stats_tmp;
@@ -1952,36 +2045,15 @@ int main(int argc, char **argv)
 		get_proc_stat(proc_stat_old);
 	nr_ticks = get_ticks();
 
-	if (opt_flags & OPT_TOP) {
-		struct sigaction sa;
-
-		memset(&sa, 0, sizeof(sa));
-		sa.sa_handler = handle_sigwinch;
-		if (sigaction(SIGWINCH, &sa, NULL) < 0) {
-			fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
-				errno, strerror(errno));
-			exit(EXIT_FAILURE);
-		}
-		initscr();
-		cbreak();
-		noecho();
-		nodelay(stdscr, 1);
-		keypad(stdscr, 1);
-		curs_set(0);
-		curses_init = true;
-	}
+	/* Set display functions */
+	df = (opt_flags & OPT_TOP) ? df_top : df_normal;
+	df.df_setup();
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
 		double secs, duration, right_now;
 
-		if (resized && curses_init) {
-			cpustat_winsize();
-			resizeterm(rows, cols);
-			refresh();
-			resized = false;
-		}
-		cpustat_clear();
+		df.df_clear();
 
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
@@ -2029,7 +2101,7 @@ int main(int argc, char **argv)
 			get_proc_stat(proc_stat_new);
 			proc_stat_diff(proc_stat_old, proc_stat_new,
 					&proc_stat_delta);
-			cs_printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
+			df.df_printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
 				cpus_online());
@@ -2048,13 +2120,11 @@ int main(int argc, char **argv)
 		proc_stat_old = proc_stat_new;
 		proc_stat_new = proc_stat_tmp;
 		samples++;
-		if (!curses_init)
-			putchar('\n');
-		else
-			refresh();
+
+		df.df_refresh();
 	}
 
-	cpustat_endwin();
+	df.df_endwin();
 
 	time_now = gettime_to_double();
 	samples_dump(csv_results, time_now - time_start, time_now,
