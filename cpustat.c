@@ -932,8 +932,9 @@ static void info_banner_dump(const double time_now)
 		putdec(ptr, tm.tm_min);
 		ptr += 2;
 		*ptr = ':';
+		ptr++;
 		putdec(ptr, tm.tm_sec);
-		*ptr += 2;
+		ptr += 2;
 		*ptr = ')';
 		ptr++;
 	}
