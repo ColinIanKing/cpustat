@@ -196,10 +196,11 @@ typedef struct {
 	void (*df_endwin)(void);
 	void (*df_clear)(void);
 	void (*df_refresh)(void);
-	void (*df_winsize)(void);
-	void (*df_printf)(const char *fmt, ...);
+	void (*df_winsize)(bool redo);
+	void (*df_printfnl)(const char *fmt, ...);
 	void (*df_putc)(int ch);
-	void (*df_putstr)(char *str);
+	void (*df_putstr)(char *str, int n);
+	void (*df_linebreak)(void);
 } display_funcs_t;
 
 static cpu_freq_scale_t cpu_freq_scale[] = {
@@ -315,7 +316,7 @@ static void handle_sigwinch(int sig)
 {
 	(void)sig;
 
-	df.df_winsize();
+	df.df_winsize(true);
 	resized = true;
 }
 
@@ -325,39 +326,39 @@ static void handle_sigwinch(int sig)
  */
 static void cpustat_top_setup(void)
 {
-	struct sigaction sa;
-
-	memset(&sa, 0, sizeof(sa));
-	sa.sa_handler = handle_sigwinch;
-	if (sigaction(SIGWINCH, &sa, NULL) < 0) {
-		fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
-			errno, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
 	initscr();
 	cbreak();
 	noecho();
 	nodelay(stdscr, 1);
 	keypad(stdscr, 1);
 	curs_set(0);
-	df.df_winsize();
 }
 
 /*
- *  cpustat_top_winsize()
+ *  cpustat_generic_winsize()
  *	get tty size in top mode
  */
-static void cpustat_top_winsize(void)
+static void cpustat_generic_winsize(bool redo)
 {
-	struct winsize ws;
+	if (redo) {
+		struct winsize ws;
 
-	if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1) {
-		rows = ws.ws_row;
-		cols = ws.ws_col;
-	} else {
-		rows = 25;
-		cols = 80;
+		if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1) {
+			rows = ws.ws_row;
+			cols = ws.ws_col;
+		} else {
+			rows = 25;
+			cols = 80;
+		}
 	}
+}
+
+static void cpustat_top_winsize(bool redo)
+{
+	(void)redo;
+
+	cpustat_generic_winsize(true);
+	resizeterm(rows, cols);
 }
 
 /*
@@ -375,7 +376,7 @@ static void cpustat_noop(void)
  */
 static void cpustat_top_endwin(void)
 {
-	cpustat_top_winsize();
+	df.df_winsize(true);
 	resizeterm(rows, cols);
 	refresh();
 	resized = false;
@@ -402,40 +403,19 @@ static inline void cpustat_top_refresh(void)
 }
 
 /*
- *  cpustat_normal_refresh()
- *	refresh screen in normal tty mode
+ * cpustat_generic_printfnl()
+ *      cpustat generic printf with newline
  */
-static inline void cpustat_normal_refresh(void)
-{
-	putc('\n', stdout);
-}
-
-/*
- * cpustat_top_printf()
- *      cpustat printf in top mode
- */
-static void cpustat_top_printf(const char *fmt, ...)
+static void cpustat_generic_printfnl(const char *fmt, ...)
 {
 	va_list ap;
+	int n;
 
 	va_start(ap, fmt);
 	char buf[256];
 
-	vsnprintf(buf, sizeof(buf), fmt, ap);
-	printw("%s", buf);
-	va_end(ap);
-}
-
-/*
- * cpustat_normal_printf()
- *      cpustat printf in normal mode
- */
-static void cpustat_normal_printf(const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	vprintf(fmt, ap);
+	n = vsnprintf(buf, sizeof(buf) - 2, fmt, ap);
+	df.df_putstr(buf, n);
 	va_end(ap);
 }
 
@@ -461,8 +441,16 @@ static void cpustat_normal_putc(int ch)
  *  cpustat_top_putstr)
  * 	cpustat put string in top mode
  */
-static void cpustat_top_putstr(char *str)
+static void cpustat_top_putstr(char *str, int n)
 {
+	if (n > cols) {
+		n = cols;
+		str[n] = '\0';
+	} else {
+		str[n] = '\n';
+		str[n + 1] = '\0';
+	}
+
 	addstr(str);
 }
 
@@ -470,9 +458,24 @@ static void cpustat_top_putstr(char *str)
  *  cpustat_normal_putstr()
  * 	cpustat put string in normal mode
  */
-static void cpustat_normal_putstr(char *str)
+static void cpustat_normal_putstr(char *str, int n)
 {
+	if (n > cols)
+		n = cols;
+
+	str[n] = '\n';
+	str[n + 1] = '\0';
+
 	fputs(str, stdout);
+}
+
+/*
+ *  cpustat_normal_linebreak()
+ *	put a line break between output
+ */
+static void cpustat_normal_linebreak(void)
+{
+	putc('\n', stdout);
 }
 
 static display_funcs_t df_top = {
@@ -481,20 +484,22 @@ static display_funcs_t df_top = {
 	cpustat_top_clear,
 	cpustat_top_refresh,
 	cpustat_top_winsize,
-	cpustat_top_printf,
+	cpustat_generic_printfnl,
 	cpustat_top_putc,
-	cpustat_top_putstr
+	cpustat_top_putstr,
+	cpustat_noop,
 };
 
 static display_funcs_t df_normal = {
 	cpustat_noop,
 	cpustat_noop,
 	cpustat_noop,
-	cpustat_normal_refresh,
 	cpustat_noop,
-	cpustat_normal_printf,
+	cpustat_generic_winsize,
+	cpustat_generic_printfnl,
 	cpustat_normal_putc,
-	cpustat_normal_putstr
+	cpustat_normal_putstr,
+	cpustat_normal_linebreak,
 };
 
 /*
@@ -895,14 +900,14 @@ static inline double duration_round(const double duration)
         return floor((duration * 100.0) + 0.5) / 100.0;
 }
 
-static inline void putdec(const int v)
+static inline void putdec(char *str, const int v)
 {
 	register int d;
 
 	d = (v / 10);
-	df.df_putc(d > 9 ? '?' : '0' + d);
-	d = (v % 10);
-	df.df_putc('0' + d);
+	str[0] = d > 9 ? '?' : '0' + d;
+	d = v % 10;
+	str[1] = '0' + d;
 }
 
 /*
@@ -911,20 +916,29 @@ static inline void putdec(const int v)
  */
 static void info_banner_dump(const double time_now)
 {
-	df.df_putstr("  %CPU   %USR   %SYS   PID S  CPU   Time Task");
+	char str[256] = "  %CPU   %USR   %SYS   PID S  CPU   Time Task";
+	char *ptr = str + strlen(str);
+
 	if (opt_flags & OPT_TIMESTAMP) {
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		df.df_putstr("  (");
-		putdec(tm.tm_hour);
-		df.df_putc(':');
-		putdec(tm.tm_min);
-		df.df_putc(':');
-		putdec(tm.tm_sec);
-		df.df_putc(')');
+		strncpy(ptr, "  (", 3);
+		ptr += 3;
+		putdec(ptr, tm.tm_hour);
+		ptr += 2;
+		*ptr = ':';
+		ptr++;
+		putdec(ptr, tm.tm_min);
+		ptr += 2;
+		*ptr = ':';
+		putdec(ptr, tm.tm_sec);
+		*ptr += 2;
+		*ptr = ')';
+		ptr++;
 	}
-	df.df_putc('\n');
+	*ptr = '\0';
+	df.df_putstr(str, ptr - str);
 }
 
 /*
@@ -948,7 +962,7 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	df.df_printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
+	df.df_printfnl("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s",
 		cpu_u_usage + cpu_s_usage,
 		cpu_u_usage, cpu_s_usage,
 		info->pid,
@@ -971,7 +985,7 @@ static void info_total_dump(
 	const double s_total)
 {
 	if (opt_flags & OPT_TOTAL)
-		df.df_printf("%6.2f %6.2f %6.2f Total\n",
+		df.df_printfnl("%6.2f %6.2f %6.2f Total",
 			u_total + s_total, u_total, s_total);
 }
 
@@ -1013,7 +1027,7 @@ static void samples_dump(
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
-		df.df_printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
+		df.df_printfnl("Grand Total (from %" PRIu32 " samples, %.1f seconds):",
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
@@ -1023,7 +1037,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		df.df_printf("\n");
+		df.df_printfnl("");
 	}
 
 	if (!filename) {
@@ -1565,7 +1579,7 @@ static inline void proc_stat_dump(
 	const double duration)
 {
 	double scale = 1.0 / duration;
-	printf("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
+	df.df_printfnl("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
 		"%.1f new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked\n",
 		scale * delta->ctxt,
 		scale * delta->irq,
@@ -2035,6 +2049,14 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
+	memset(&new_action, 0, sizeof(new_action));
+	new_action.sa_handler = handle_sigwinch;
+	if (sigaction(SIGWINCH, &new_action , NULL) < 0) {
+		fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+			errno, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
 	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
 	if (UNLIKELY(cpu_stats_old == NULL || cpu_stats_new == NULL)) {
@@ -2052,6 +2074,7 @@ int main(int argc, char **argv)
 	/* Set display functions */
 	df = (opt_flags & OPT_TOP) ? df_top : df_normal;
 	df.df_setup();
+	df.df_winsize(true);
 
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
@@ -2080,8 +2103,9 @@ int main(int argc, char **argv)
 			if (errno == EINTR) {
 				if (!resized)
 					stop_cpustat = true;
-				else
+				else {
 					redo = true;
+				}
 			} else {
 				fprintf(stderr,
 					"select failed: errno=%d (%s)\n",
@@ -2099,13 +2123,17 @@ int main(int argc, char **argv)
 		total_ticks += nr_ticks;
 		time_now = right_now;
 		get_cpustats(cpu_stats_new, time_now);
+
+		df.df_winsize(redo);
+		df.df_refresh();
+
 		if (opt_flags & OPT_EXTRA_STATS) {
 			double avg_cpu_freq = cpu_freq_average(max_cpus);
 
 			get_proc_stat(proc_stat_new);
 			proc_stat_diff(proc_stat_old, proc_stat_new,
 					&proc_stat_delta);
-			df.df_printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
+			df.df_printfnl("Load Avg %s, Freq Avg. %s, %s CPUs online",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
 				cpus_online());
@@ -2126,9 +2154,11 @@ int main(int argc, char **argv)
 		samples++;
 
 		df.df_refresh();
+		df.df_linebreak();
 	}
 
 	df.df_endwin();
+	df = df_normal;
 
 	time_now = gettime_to_double();
 	samples_dump(csv_results, time_now - time_start, time_now,
