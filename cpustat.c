@@ -340,6 +340,7 @@ static void cpustat_top_setup(void)
 	nodelay(stdscr, 1);
 	keypad(stdscr, 1);
 	curs_set(0);
+	df.df_winsize();
 }
 
 /*
@@ -353,6 +354,9 @@ static void cpustat_top_winsize(void)
 	if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1) {
 		rows = ws.ws_row;
 		cols = ws.ws_col;
+	} else {
+		rows = 25;
+		cols = 80;
 	}
 }
 
