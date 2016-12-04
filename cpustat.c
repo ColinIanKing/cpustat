@@ -2099,12 +2099,15 @@ int main(int argc, char **argv)
 		redo = false;
 
 		double_to_timeval(secs, &tv);
+retry:
 		if (UNLIKELY(select(0, NULL, NULL, NULL, &tv) < 0)) {
 			if (errno == EINTR) {
 				if (!resized)
 					stop_cpustat = true;
 				else {
 					redo = true;
+					if (timeval_to_double(&tv) > 0.0)
+						goto retry;
 				}
 			} else {
 				fprintf(stderr,
