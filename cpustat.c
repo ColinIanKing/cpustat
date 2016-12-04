@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <dirent.h>
 #include <ctype.h>
 #include <errno.h>
@@ -41,6 +42,7 @@
 #include <float.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <ncurses.h>
 
 #define APP_NAME		"cpustat"
 #define TABLE_SIZE		(2411)		/* Should be a prime */
@@ -60,6 +62,7 @@
 #define OPT_SAMPLES		(0x00000800)
 #define OPT_DISTRIBUTION	(0x00001000)
 #define OPT_EXTRA_STATS		(0x00002000)
+#define OPT_TOP			(0x00004000)
 
 /* Histogram specific constants */
 #define MAX_DIVISIONS		(20)
@@ -234,6 +237,13 @@ static unsigned int opt_flags;		/* option flags */
 static uint64_t clock_ticks;		/* number of clock ticks per second */
 static pid_t opt_pid = -1;		/* PID to match against, -p option */
 
+static bool resized;			/* window resized */
+static bool curses_init;		/* curses initialised */
+static int rows = 25;			/* tty size, rows */
+static int cols = 80;			/* tty size, columns */
+
+
+
 /*
  *  Attempt to catch a range of signals so
  *  we can clean
@@ -287,6 +297,96 @@ static const int signals[] = {
 	-1,
 };
 
+/*
+ *  cpustat_endwin()
+ *	call endwin if in top mode
+ */
+static void cpustat_endwin(void)
+{
+	if (curses_init) {
+		clear();
+		endwin();
+	}
+}
+
+/*
+ * cpustat_clear()
+ *	clear screen if in top mode
+ */
+static inline void cpustat_clear(void)
+{
+	if (curses_init)
+		clear();
+}
+
+/*
+ *  cpustat_refresh()
+ *	refresh screen if in top mode
+ */
+static inline void cpustat_refresh(void)
+{
+	if (curses_init)
+		refresh();
+}
+
+/*
+ *  cpustat_winsize()
+ *	get tty size
+ */
+static void cpustat_winsize(void)
+{
+	struct winsize ws;
+
+	if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1) {
+		rows = ws.ws_row;
+		cols = ws.ws_col;
+	}
+}
+
+/*
+ * cs_printf()
+ *      cpustat printf - print to stdout or ncurses
+ *	print depending on the mode
+ */
+static void cs_printf(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	if (UNLIKELY(curses_init)) {
+		char buf[256];
+
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		printw("%s", buf);
+	} else {
+		vprintf(fmt, ap);
+	}
+	va_end(ap);
+}
+
+/*
+ *  cs_putc()
+ *	cpustat put char
+ */
+static void cs_putc(int ch)
+{
+	if (UNLIKELY(curses_init))
+		addch(ch);
+	else
+		fputc(ch, stdout);
+}
+
+/*
+ *  cs_puts()
+ * 	cpustat put string
+ */
+static void cs_puts(char *str)
+{
+	if (UNLIKELY(curses_init))
+		addstr(str);
+	else
+		fputs(str, stdout);
+}
 
 /*
  *  strtouint64()
@@ -691,9 +791,9 @@ static inline void putdec(const int v)
 	register int d;
 
 	d = (v / 10);
-	fputc(d > 9 ? '?' : '0' + d, stdout);
+	cs_putc(d > 9 ? '?' : '0' + d);
 	d = (v % 10);
-	fputc('0' + d, stdout);
+	cs_putc('0' + d);
 }
 
 /*
@@ -702,20 +802,20 @@ static inline void putdec(const int v)
  */
 static void info_banner_dump(const double time_now)
 {
-	fputs("  %CPU   %USR   %SYS   PID S  CPU   Time Task", stdout);
+	cs_puts("  %CPU   %USR   %SYS   PID S  CPU   Time Task");
 	if (opt_flags & OPT_TIMESTAMP) {
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		fputs("  (", stdout);
+		cs_puts("  (");
 		putdec(tm.tm_hour);
-		fputc(':', stdout);
+		cs_putc(':');
 		putdec(tm.tm_min);
-		fputc(':', stdout);
+		cs_putc(':');
 		putdec(tm.tm_sec);
-		fputc(')', stdout);
+		cs_putc(')');
 	}
-	fputc('\n', stdout);
+	cs_putc('\n');
 }
 
 /*
@@ -739,7 +839,7 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
+	cs_printf("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s\n",
 		cpu_u_usage + cpu_s_usage,
 		cpu_u_usage, cpu_s_usage,
 		info->pid,
@@ -762,7 +862,7 @@ static void info_total_dump(
 	const double s_total)
 {
 	if (opt_flags & OPT_TOTAL)
-		printf("%6.2f %6.2f %6.2f Total\n",
+		cs_printf("%6.2f %6.2f %6.2f Total\n",
 			u_total + s_total, u_total, s_total);
 }
 
@@ -804,7 +904,7 @@ static void samples_dump(
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
-		printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
+		cs_printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
@@ -814,7 +914,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		putchar('\n');
+		cs_printf("\n");
 	}
 
 	if (!filename) {
@@ -1677,7 +1777,20 @@ static void show_usage(void)
 		" -t specifies a task tick count threshold where samples less\n"
                 "    than this are ignored\n"
 		" -T show total CPU utilisation statistics\n"
-		" -x show extra stats (load average, avg cpu freq, etc)\n");
+		" -x show extra stats (load average, avg cpu freq, etc)\n"
+		" -X top-like curses based display mode\n");
+}
+
+/*
+ *  handle_sigwinch()
+ *      flag window resize on SIGWINCH
+ */
+static void handle_sigwinch(int sig)
+{
+	(void)sig;
+
+	cpustat_winsize();
+	resized = true;
 }
 
 int main(int argc, char **argv)
@@ -1694,12 +1807,13 @@ int main(int argc, char **argv)
 	int32_t n_lines = -1;
 	uint32_t samples = 0;
 	bool forever = true;
+	bool redo = false;
 	int i;
 
 	clock_ticks = (uint64_t)sysconf(_SC_CLK_TCK);
 
 	for (;;) {
-		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:x");
+		int c = getopt(argc, argv, "acdDghiln:qr:sSt:Tp:xX");
 		if (c == -1)
 			break;
 		switch (c) {
@@ -1777,6 +1891,9 @@ int main(int argc, char **argv)
 		case 'x':
 			opt_flags |= OPT_EXTRA_STATS;
 			break;
+		case 'X':
+			opt_flags |= OPT_TOP;
+			break;
 		default:
 			show_usage();
 			exit(EXIT_FAILURE);
@@ -1835,9 +1952,36 @@ int main(int argc, char **argv)
 		get_proc_stat(proc_stat_old);
 	nr_ticks = get_ticks();
 
+	if (opt_flags & OPT_TOP) {
+		struct sigaction sa;
+
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_handler = handle_sigwinch;
+		if (sigaction(SIGWINCH, &sa, NULL) < 0) {
+			fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+				errno, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+		initscr();
+		cbreak();
+		noecho();
+		nodelay(stdscr, 1);
+		keypad(stdscr, 1);
+		curs_set(0);
+		curses_init = true;
+	}
+
 	while (!stop_cpustat && (forever || count--)) {
 		struct timeval tv;
 		double secs, duration, right_now;
+
+		if (resized && curses_init) {
+			cpustat_winsize();
+			resizeterm(rows, cols);
+			refresh();
+			resized = false;
+		}
+		cpustat_clear();
 
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
@@ -1850,12 +1994,18 @@ int main(int argc, char **argv)
 			if (secs < 0.5)
 				secs += duration_secs;
 		} else {
-			t++;
+			if (!redo)
+				t++;
 		}
+		redo = false;
+
 		double_to_timeval(secs, &tv);
 		if (UNLIKELY(select(0, NULL, NULL, NULL, &tv) < 0)) {
 			if (errno == EINTR) {
-				stop_cpustat = true;
+				if (!resized)
+					stop_cpustat = true;
+				else
+					redo = true;
 			} else {
 				fprintf(stderr,
 					"select failed: errno=%d (%s)\n",
@@ -1879,7 +2029,7 @@ int main(int argc, char **argv)
 			get_proc_stat(proc_stat_new);
 			proc_stat_diff(proc_stat_old, proc_stat_new,
 					&proc_stat_delta);
-			printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
+			cs_printf("Load Avg %s, Freq Avg. %s, %s CPUs online\n",
 				load_average(),
 				cpu_freq_format(avg_cpu_freq),
 				cpus_online());
@@ -1898,8 +2048,13 @@ int main(int argc, char **argv)
 		proc_stat_old = proc_stat_new;
 		proc_stat_new = proc_stat_tmp;
 		samples++;
-		putchar('\n');
+		if (!curses_init)
+			putchar('\n');
+		else
+			refresh();
 	}
+
+	cpustat_endwin();
 
 	time_now = gettime_to_double();
 	samples_dump(csv_results, time_now - time_start, time_now,

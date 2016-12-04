@@ -143,6 +143,10 @@ calculate total CPU utilisation.
 .TP
 .B \-x
 show extra CPU related statistics, namely: CPU load average over 1, 5 and 10 minutes, CPU frequency (average of all online CPU frequencies), number of CPUs online.
+.TP
+.B \-X
+run in curses based "top" like mode; this will make cpustat consume more CPU cycles as
+it adds on more display handling overhead.
 .SH EXAMPLES
 .LP
 cpustat

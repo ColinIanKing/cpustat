@@ -43,7 +43,7 @@ BINDIR=/usr/sbin
 MANDIR=/usr/share/man/man8
 
 cpustat: cpustat.o Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS)  $< -lm -o $@ $(LDFLAGS)
+	$(CC) $(CPPFLAGS) $(CFLAGS)  $< -lm -lncurses -o $@ $(LDFLAGS)
 
 cpustat.o: cpustat.c Makefile
 
