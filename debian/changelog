@@ -1,3 +1,17 @@
+cpustat (0.02.00-1) unstable; urgency=medium
+
+  * Makefile: bump version to 0.02.00
+  * Debian control: add libncurses5-dev to Build-Depends
+  * Fix timestamp output
+  * Retry select sleep if we have some pending sleep time
+  * Minor reworking to handle optimal refreshing and size refetching
+  * Default winsize if we can't fetch it, and fetch size on setup
+  * Handle display modes using display_function_t handlers
+  * Add -X top like mode
+  * Ensure large integer constant is ULL
+
+ -- Colin King <colin.king@canonical.com>  Sun, 4 Dec 2016 20:55:21 +0000
+
 cpustat (0.01.29-1) unstable; urgency=medium
 
   * Makefile: bump version
