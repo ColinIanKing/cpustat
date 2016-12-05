@@ -920,6 +920,11 @@ static inline double duration_round(const double duration)
         return floor((duration * 100.0) + 0.5) / 100.0;
 }
 
+/*
+ *   putdec()
+ *	put a decimal value v into string str with max 
+ *	length of nbytes
+ */
 static inline void putdec(char *str, int nbytes, int v)
 {
         register char *ptr = str + nbytes;
@@ -930,6 +935,8 @@ static inline void putdec(char *str, int nbytes, int v)
 		v /= 10;
 	}
 }
+
+
 
 /*
  *  info_banner_dump()
