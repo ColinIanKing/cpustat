@@ -1686,7 +1686,7 @@ static void get_cpustats(
 		cpu_info_t info;
 		uint64_t utime;
 		uint64_t stime;
-		char filename[PATH_MAX];
+		char filename[PATH_MAX], *fnptr;
 		char buffer[4096];
 		char *ptr = buffer, *endptr, *tmp;
 		ssize_t len;
@@ -1695,8 +1695,10 @@ static void get_cpustats(
 		if (!isdigit(entry->d_name[0]))
 			continue;
 
-		snprintf(filename, sizeof(filename), "/proc/%s/stat",
-			entry->d_name);
+		fnptr = filename;
+		fnptr += putstr(fnptr, 6, "/proc/");
+		fnptr += putstr(fnptr, PATH_MAX - 6, entry->d_name);
+		fnptr += putstr(fnptr, 5, "/stat");
 		if ((fd = open(filename, O_RDONLY)) < 0)
 			continue;
 
