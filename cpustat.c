@@ -1030,7 +1030,7 @@ static void info_dump(
 		*(ptr++) = '[';
 	ptr += putstr(ptr, 128, info->cmdline);
 	if (info->kernel_thread)
-		*(ptr++) = '[';
+		*(ptr++) = ']';
 	*ptr = '\0';
 
 	df.df_putstrnl(buffer, ptr - buffer);
