@@ -920,14 +920,15 @@ static inline double duration_round(const double duration)
         return floor((duration * 100.0) + 0.5) / 100.0;
 }
 
-static inline void putdec(char *str, const int v)
+static inline void putdec(char *str, int nbytes, int v)
 {
-	register int d;
+        register char *ptr = str + nbytes;
 
-	d = (v / 10);
-	str[0] = d > 9 ? '?' : '0' + d;
-	d = v % 10;
-	str[1] = '0' + d;
+	*(ptr--) = '\0';
+	while (--nbytes >= 0) {
+		*(ptr--) = v ?  '0' + (v % 10) : ' ';
+		v /= 10;
+	}
 }
 
 /*
@@ -945,15 +946,15 @@ static void info_banner_dump(const double time_now)
 		get_tm(time_now, &tm);
 		strncpy(ptr, "  (", 3);
 		ptr += 3;
-		putdec(ptr, tm.tm_hour);
+		putdec(ptr, 2, tm.tm_hour);
 		ptr += 2;
 		*ptr = ':';
 		ptr++;
-		putdec(ptr, tm.tm_min);
+		putdec(ptr, 2, tm.tm_min);
 		ptr += 2;
 		*ptr = ':';
 		ptr++;
-		putdec(ptr, tm.tm_sec);
+		putdec(ptr, 2, tm.tm_sec);
 		ptr += 2;
 		*ptr = ')';
 		ptr++;
