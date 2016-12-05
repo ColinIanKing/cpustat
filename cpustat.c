@@ -660,9 +660,20 @@ static void handle_sig(int dummy)
 
 /*
  *  count_bits()
- *	count bits set, from C Programming Language 2nd Ed
  */
-static unsigned int count_bits(const unsigned int val)
+#if defined(__GNUC__)
+/*
+ *  use GCC built-in
+ */
+static inline unsigned int count_bits(const unsigned int val)
+{
+	return __builtin_popcount(val);
+}
+#else
+/*
+ *  count bits set, from C Programming Language 2nd Ed
+ */
+static inline unsigned int count_bits(const unsigned int val)
 {
 	register unsigned int c, n = val;
 
@@ -671,6 +682,7 @@ static unsigned int count_bits(const unsigned int val)
 
 	return c;
 }
+#endif
 
 /*
  *  get_pid_cmdline
