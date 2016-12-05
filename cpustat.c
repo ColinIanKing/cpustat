@@ -321,11 +321,20 @@ static void handle_sigwinch(int sig)
 }
 
 /*
+ *  duration_round()
+ *	round duration to nearest 1/100th second
+ */
+static inline double duration_round(const double duration)
+{
+        return floor((duration * 100.0) + 0.5) / 100.0;
+}
+
+/*
  *   putdec()
  *	put a decimal value v into string str with max
  *	length of nbytes
  */
-static int putdec(char *str, int nbytes, int v, bool zeropad)
+static int OPTIMIZE3 HOT putdec(char *str, int nbytes, int v, bool zeropad)
 {
         register char *ptr = str + nbytes;
 	int ret = nbytes;
@@ -335,7 +344,8 @@ static int putdec(char *str, int nbytes, int v, bool zeropad)
 	while (--nbytes >= 0) {
 		*(ptr--) = '0' + (v % 10);
 		v /= 10;
-		if (!v) break;
+		if (UNLIKELY(!v))
+			break;
 	}
 
 	pad = zeropad ? '0' : ' ';
@@ -349,15 +359,16 @@ static int putdec(char *str, int nbytes, int v, bool zeropad)
  * putdouble()
  *	put a double in %6.2 with trailing space
  */
-static int putdouble(char *str, double v)
+static int OPTIMIZE3 HOT putdouble(char *str, double v)
 {
+	v += 0.005;	/* Round up */
+
 	(void)putdec(str, 3, (int)v, false);
 	str[3] = '.';
-	(void)putdec(str + 4, 2, v * 100.0 - (double)v, true);
+	(void)putdec(str + 4, 2, v * 100.0 - (double)((int)v * 100), true);
 	str[2] = (str[2] == ' ') ? '0' : str[2];
 	str[6] = ' ';
 	str[7] = '\0';
-
 
 	return 6;
 }
@@ -366,13 +377,12 @@ static int putdouble(char *str, double v)
  *  putstr()
  *	append a string and return bytes added
  */
-static int putstr(char *dst, int max, char *src)
+static int OPTIMIZE3 HOT putstr(char *dst, int max, char *src)
 {
 	int n = 0;
 
-	while ((n < max) && (*(dst++) = *(src++))) {
+	while ((n < max) && (*(dst++) = *(src++)))
 		n++;
-	}
 	*dst = '\0';
 	return n;
 }
@@ -401,7 +411,7 @@ static void cpustat_generic_winsize(bool redo)
 	if (redo) {
 		struct winsize ws;
 
-		if (ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1) {
+		if (LIKELY(ioctl(fileno(stdin), TIOCGWINSZ, &ws) != -1)) {
 			rows = ws.ws_row;
 			cols = ws.ws_col;
 		} else {
@@ -466,7 +476,7 @@ static inline void cpustat_top_refresh(void)
  */
 static void cpustat_top_putc(int ch)
 {
-	if (cury >= rows - 1)
+	if (UNLIKELY(cury >= rows - 1))
 		return;
 	addch(ch);
 }
@@ -487,10 +497,10 @@ static void cpustat_normal_putc(int ch)
  */
 static void cpustat_top_putstrnl(char *str, int n)
 {
-	if (cury >= rows)
+	if (UNLIKELY(cury >= rows))
 		return;
 
-	if (n > cols) {
+	if (UNLIKELY(n > cols)) {
 		n = cols;
 		str[n] = '\0';
 	} else {
@@ -508,7 +518,7 @@ static void cpustat_top_putstrnl(char *str, int n)
  */
 static void cpustat_normal_putstrnl(char *str, int n)
 {
-	if (n > cols)
+	if (UNLIKELY(n > cols))
 		n = cols;
 
 	str[n] = '\n';
@@ -560,7 +570,7 @@ static uint64_t OPTIMIZE3 HOT strtouint64(char *str, char **endptr)
 	for (;;) {
 		register unsigned int digit = *str - '0';
 
-		if (digit > 9)
+		if (UNLIKELY(digit > 9))
 			break;
 		if (UNLIKELY(v >= 1844674407370955161ULL))
 			goto do_overflow;
@@ -588,7 +598,7 @@ static uint32_t OPTIMIZE3 HOT strtouint32(char *str, char **endptr)
 	for (;;) {
 		register unsigned int digit = *str - '0';
 
-		if (digit > 9)
+		if (UNLIKELY(digit > 9))
 			break;
 		if (UNLIKELY(v >= 429496729))
 			goto do_overflow;
@@ -608,7 +618,7 @@ do_overflow:
  *  get_ticks()
  *	get ticks
  */
-static inline uint64_t get_ticks(void)
+static inline uint64_t OPTIMIZE3 HOT get_ticks(void)
 {
 	return (opt_flags & OPT_TICKS_ALL) ?
 		clock_ticks * (uint64_t)sysconf(_SC_NPROCESSORS_ONLN) :
@@ -712,7 +722,7 @@ static inline unsigned int count_bits(const unsigned int val)
 /*
  *  count bits set, from C Programming Language 2nd Ed
  */
-static inline unsigned int count_bits(const unsigned int val)
+static inline unsigned int OPTIMIZE3 HOT count_bits(const unsigned int val)
 {
 	register unsigned int c, n = val;
 
@@ -951,15 +961,6 @@ static int info_compare_total(const void *const item1, const void *const item2)
 }
 
 /*
- *  duration_round()
- *	round duration to nearest 1/100th second
- */
-static inline double duration_round(const double duration)
-{
-        return floor((duration * 100.0) + 0.5) / 100.0;
-}
-
-/*
  *  info_banner_dump()
  *	dump banner for per_info stats
  */
@@ -968,7 +969,7 @@ static void info_banner_dump(const double time_now)
 	char str[256] = "  %CPU   %USR   %SYS   PID S  CPU    Time Task";
 	char *ptr = str + strlen(str);
 
-	if (opt_flags & OPT_TIMESTAMP) {
+	if (UNLIKELY(opt_flags & OPT_TIMESTAMP)) {
 		struct tm tm;
 
 		get_tm(time_now, &tm);
@@ -1039,11 +1040,11 @@ static void info_dump(
  *  info_total_dump()
  *	dump out totals of total, system and user times
  */
-static void info_total_dump(
+static inline void info_total_dump(
 	const double u_total,
 	const double s_total)
 {
-	if (opt_flags & OPT_TOTAL) {
+	if (UNLIKELY(opt_flags & OPT_TOTAL)) {
 		char buffer[256], *ptr = buffer;
 
 		ptr += putdouble(ptr, u_total + s_total);
