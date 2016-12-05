@@ -199,7 +199,7 @@ typedef struct {
 	void (*df_winsize)(bool redo);
 	void (*df_printfnl)(const char *fmt, ...);
 	void (*df_putc)(int ch);
-	void (*df_putstr)(char *str, int n);
+	void (*df_putstrnl)(char *str, int n);
 	void (*df_linebreak)(void);
 } display_funcs_t;
 
@@ -252,6 +252,7 @@ static pid_t opt_pid = -1;		/* PID to match against, -p option */
 static bool resized;			/* window resized */
 static int rows = 25;			/* tty size, rows */
 static int cols = 80;			/* tty size, columns */
+static int cury = 0;			/* current y curpos */
 
 static display_funcs_t df;		/* display functions */
 
@@ -415,7 +416,7 @@ static void cpustat_generic_printfnl(const char *fmt, ...)
 	char buf[256];
 
 	n = vsnprintf(buf, sizeof(buf) - 2, fmt, ap);
-	df.df_putstr(buf, n);
+	df.df_putstrnl(buf, n);
 	va_end(ap);
 }
 
@@ -425,6 +426,8 @@ static void cpustat_generic_printfnl(const char *fmt, ...)
  */
 static void cpustat_top_putc(int ch)
 {
+	if (cury >= rows - 1)
+		return;
 	addch(ch);
 }
 
@@ -438,11 +441,15 @@ static void cpustat_normal_putc(int ch)
 }
 
 /*
- *  cpustat_top_putstr)
- * 	cpustat put string in top mode
+ *  cpustat_top_putstrnl()
+ * 	cpustat put string in top mode with newline
+ *	(or not if there is potential for line wrap)
  */
-static void cpustat_top_putstr(char *str, int n)
+static void cpustat_top_putstrnl(char *str, int n)
 {
+	if (cury >= rows)
+		return;
+
 	if (n > cols) {
 		n = cols;
 		str[n] = '\0';
@@ -451,14 +458,15 @@ static void cpustat_top_putstr(char *str, int n)
 		str[n + 1] = '\0';
 	}
 
+	cury++;
 	addstr(str);
 }
 
 /*
- *  cpustat_normal_putstr()
- * 	cpustat put string in normal mode
+ *  cpustat_normal_putstr(()
+ * 	cpustat put string in normal mode with newline
  */
-static void cpustat_normal_putstr(char *str, int n)
+static void cpustat_normal_putstrnl(char *str, int n)
 {
 	if (n > cols)
 		n = cols;
@@ -486,7 +494,7 @@ static display_funcs_t df_top = {
 	cpustat_top_winsize,
 	cpustat_generic_printfnl,
 	cpustat_top_putc,
-	cpustat_top_putstr,
+	cpustat_top_putstrnl,
 	cpustat_noop,
 };
 
@@ -498,7 +506,7 @@ static display_funcs_t df_normal = {
 	cpustat_generic_winsize,
 	cpustat_generic_printfnl,
 	cpustat_normal_putc,
-	cpustat_normal_putstr,
+	cpustat_normal_putstrnl,
 	cpustat_normal_linebreak,
 };
 
@@ -939,7 +947,7 @@ static void info_banner_dump(const double time_now)
 		ptr++;
 	}
 	*ptr = '\0';
-	df.df_putstr(str, ptr - str);
+	df.df_putstrnl(str, ptr - str);
 }
 
 /*
@@ -2082,6 +2090,7 @@ int main(int argc, char **argv)
 		double secs, duration, right_now;
 
 		df.df_clear();
+		cury = 0;
 
 		/* Timeout to wait for in the future for this sample */
 		secs = time_start + ((double)t * duration_secs) - time_now;
