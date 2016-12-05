@@ -197,7 +197,6 @@ typedef struct {
 	void (*df_clear)(void);
 	void (*df_refresh)(void);
 	void (*df_winsize)(bool redo);
-	void (*df_printfnl)(const char *fmt, ...);
 	void (*df_putc)(int ch);
 	void (*df_putstrnl)(char *str, int n);
 	void (*df_linebreak)(void);
@@ -322,6 +321,64 @@ static void handle_sigwinch(int sig)
 }
 
 /*
+ *   putdec()
+ *	put a decimal value v into string str with max
+ *	length of nbytes
+ */
+static int putdec(char *str, int nbytes, int v, bool zeropad)
+{
+        register char *ptr = str + nbytes;
+	int ret = nbytes;
+	char pad;
+
+	*(ptr--) = '\0';
+	while (--nbytes >= 0) {
+		*(ptr--) = '0' + (v % 10);
+		v /= 10;
+		if (!v) break;
+	}
+
+	pad = zeropad ? '0' : ' ';
+	while (--nbytes >= 0)
+		*(ptr--) = pad;
+
+	return ret;
+}
+
+/*
+ * putdouble()
+ *	put a double in %6.2 with trailing space
+ */
+static int putdouble(char *str, double v)
+{
+	(void)putdec(str, 3, (int)v, false);
+	str[3] = '.';
+	(void)putdec(str + 4, 2, v * 100.0 - (double)v, true);
+	str[2] = (str[2] == ' ') ? '0' : str[2];
+	str[6] = ' ';
+	str[7] = '\0';
+
+
+	return 6;
+}
+
+/*
+ *  putstr()
+ *	append a string and return bytes added
+ */
+static int putstr(char *dst, int max, char *src)
+{
+	int n = 0;
+
+	while ((n < max) && (*(dst++) = *(src++))) {
+		n++;
+	}
+	*dst = '\0';
+	return n;
+}
+
+
+/*
  *   cpustat_top_setup
  *	setup display in top mode
  */
@@ -404,23 +461,6 @@ static inline void cpustat_top_refresh(void)
 }
 
 /*
- * cpustat_generic_printfnl()
- *      cpustat generic printf with newline
- */
-static void cpustat_generic_printfnl(const char *fmt, ...)
-{
-	va_list ap;
-	int n;
-
-	va_start(ap, fmt);
-	char buf[256];
-
-	n = vsnprintf(buf, sizeof(buf) - 2, fmt, ap);
-	df.df_putstrnl(buf, n);
-	va_end(ap);
-}
-
-/*
  *  cpustat_top_putc()
  *	cpustat put char in top mode
  */
@@ -492,7 +532,6 @@ static display_funcs_t df_top = {
 	cpustat_top_clear,
 	cpustat_top_refresh,
 	cpustat_top_winsize,
-	cpustat_generic_printfnl,
 	cpustat_top_putc,
 	cpustat_top_putstrnl,
 	cpustat_noop,
@@ -504,7 +543,6 @@ static display_funcs_t df_normal = {
 	cpustat_noop,
 	cpustat_noop,
 	cpustat_generic_winsize,
-	cpustat_generic_printfnl,
 	cpustat_normal_putc,
 	cpustat_normal_putstrnl,
 	cpustat_normal_linebreak,
@@ -581,7 +619,7 @@ static inline uint64_t get_ticks(void)
  *  secs_to_str()
  *	report seconds in different units.
  */
-static const char *secs_to_str(const double secs)
+static char *secs_to_str(const double secs)
 {
 	static char buf[16];
 	int i;
@@ -590,8 +628,9 @@ static const char *secs_to_str(const double secs)
 		if (secs <= second_scales[i + 1].scale)
 			break;
 	}
-	snprintf(buf, sizeof(buf), "%5.2f%c",
-		secs / second_scales[i].scale, second_scales[i].ch);
+	putdouble(buf, secs / second_scales[i].scale);
+	buf[6] = second_scales[i].ch;
+
 	return buf;
 }
 
@@ -921,30 +960,12 @@ static inline double duration_round(const double duration)
 }
 
 /*
- *   putdec()
- *	put a decimal value v into string str with max 
- *	length of nbytes
- */
-static inline void putdec(char *str, int nbytes, int v)
-{
-        register char *ptr = str + nbytes;
-
-	*(ptr--) = '\0';
-	while (--nbytes >= 0) {
-		*(ptr--) = v ?  '0' + (v % 10) : ' ';
-		v /= 10;
-	}
-}
-
-
-
-/*
  *  info_banner_dump()
  *	dump banner for per_info stats
  */
 static void info_banner_dump(const double time_now)
 {
-	char str[256] = "  %CPU   %USR   %SYS   PID S  CPU   Time Task";
+	char str[256] = "  %CPU   %USR   %SYS   PID S  CPU    Time Task";
 	char *ptr = str + strlen(str);
 
 	if (opt_flags & OPT_TIMESTAMP) {
@@ -953,16 +974,13 @@ static void info_banner_dump(const double time_now)
 		get_tm(time_now, &tm);
 		strncpy(ptr, "  (", 3);
 		ptr += 3;
-		putdec(ptr, 2, tm.tm_hour);
-		ptr += 2;
+		ptr += putdec(ptr, 2, tm.tm_hour, false);
 		*ptr = ':';
 		ptr++;
-		putdec(ptr, 2, tm.tm_min);
-		ptr += 2;
+		ptr += putdec(ptr, 2, tm.tm_min, false);
 		*ptr = ':';
 		ptr++;
-		putdec(ptr, 2, tm.tm_sec);
-		ptr += 2;
+		ptr += putdec(ptr, 2, tm.tm_sec, false);
 		*ptr = ')';
 		ptr++;
 	}
@@ -982,6 +1000,8 @@ static void info_dump(
 	double *u_total,
 	double *s_total)
 {
+	char buffer[512], *ptr = buffer;
+
 	const double cpu_u_usage =
 		total_ticks == 0 ? 0.0 : 100.0 * (double)uticks / total_ticks;
 	const double cpu_s_usage =
@@ -991,18 +1011,28 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	df.df_printfnl("%6.2f %6.2f %6.2f %5d %c %4d %s %s%s%s",
-		cpu_u_usage + cpu_s_usage,
-		cpu_u_usage, cpu_s_usage,
-		info->pid,
-		info->state,
-		info->processor,
-		secs_to_str(cpu_time),
-		info->kernel_thread ?
-			"[" : "",
-		info->cmdline,
-		info->kernel_thread ?
-			"]" : "");
+	ptr += putdouble(ptr, cpu_u_usage + cpu_s_usage);
+	*(ptr++) = ' ';
+	ptr += putdouble(ptr, cpu_u_usage);
+	*(ptr++) = ' ';
+	ptr += putdouble(ptr, cpu_s_usage);
+	*(ptr++) = ' ';
+	ptr += putdec(ptr, 5, info->pid, false);
+	*(ptr++) = ' ';
+	*(ptr++) = info->state;
+	*(ptr++) = ' ';
+	ptr += putdec(ptr, 4, info->processor, false);
+	*(ptr++) = ' ';
+	ptr += putstr(ptr, 20, secs_to_str(cpu_time));
+	*(ptr++) = ' ';
+	if (info->kernel_thread)
+		*(ptr++) = '[';
+	ptr += putstr(ptr, 128, info->cmdline);
+	if (info->kernel_thread)
+		*(ptr++) = '[';
+	*ptr = '\0';
+
+	df.df_putstrnl(buffer, ptr - buffer);
 }
 
 /*
@@ -1013,9 +1043,18 @@ static void info_total_dump(
 	const double u_total,
 	const double s_total)
 {
-	if (opt_flags & OPT_TOTAL)
-		df.df_printfnl("%6.2f %6.2f %6.2f Total",
-			u_total + s_total, u_total, s_total);
+	if (opt_flags & OPT_TOTAL) {
+		char buffer[256], *ptr = buffer;
+
+		ptr += putdouble(ptr, u_total + s_total);
+		*(ptr++) = ' ';
+		ptr += putdouble(ptr, u_total);
+		*(ptr++) = ' ';
+		ptr += putdouble(ptr, s_total);
+		*(ptr++) = ' ';
+		ptr += putstr(ptr, 5, "Total");
+		df.df_putstrnl(buffer, ptr - buffer);
+	}
 }
 
 /*
@@ -1056,7 +1095,7 @@ static void samples_dump(
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
-		df.df_printfnl("Grand Total (from %" PRIu32 " samples, %.1f seconds):",
+		printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
@@ -1066,7 +1105,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		df.df_printfnl("");
+		putchar('\n');
 	}
 
 	if (!filename) {
@@ -1608,14 +1647,18 @@ static inline void proc_stat_dump(
 	const double duration)
 {
 	double scale = 1.0 / duration;
-	df.df_printfnl("%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
-		"%.1f new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked\n",
+	char buffer[128];
+	int n;
+
+	n = snprintf(buffer, sizeof(buffer), "%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
+		"%.1f new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked",
 		scale * delta->ctxt,
 		scale * delta->irq,
 		scale * delta->softirq,
 		scale * delta->processes,
 		delta->running,
 		delta->blocked);
+	df.df_putstrnl(buffer, n);
 }
 
 /*
@@ -1783,7 +1826,7 @@ static double cpu_freq_average(uint32_t max_cpus)
  *  cpu_freq_format()
  *	scale cpu freq into a human readable form
  */
-static const char *cpu_freq_format(double freq)
+static char *cpu_freq_format(double freq)
 {
 	static char buffer[40];
 	char *suffix = "EHz";
@@ -1900,6 +1943,23 @@ static char *load_average(void)
 unknown:
 	return "unknown";
 
+}
+
+
+static inline void load_online_dump(const uint32_t max_cpus)
+{
+	double avg_cpu_freq = cpu_freq_average(max_cpus);
+	char buffer[128], *ptr = buffer;
+
+	ptr += putstr(ptr, 10, "Load Avg ");
+	ptr += putstr(ptr, 20, load_average());
+	ptr += putstr(ptr, 10, "Freq Avg ");
+	ptr += putstr(ptr, 20, cpu_freq_format(avg_cpu_freq));
+	ptr += putstr(ptr, 2, ", ");
+	ptr += putstr(ptr, 10, cpus_online());
+	ptr += putstr(ptr, 12, " CPUs online");
+
+	df.df_putstrnl(buffer, ptr - buffer);
 }
 
 /*
@@ -2161,15 +2221,10 @@ retry:
 		df.df_refresh();
 
 		if (opt_flags & OPT_EXTRA_STATS) {
-			double avg_cpu_freq = cpu_freq_average(max_cpus);
-
 			get_proc_stat(proc_stat_new);
 			proc_stat_diff(proc_stat_old, proc_stat_new,
 					&proc_stat_delta);
-			df.df_printfnl("Load Avg %s, Freq Avg. %s, %s CPUs online",
-				load_average(),
-				cpu_freq_format(avg_cpu_freq),
-				cpus_online());
+			load_online_dump(max_cpus);
 			proc_stat_dump(&proc_stat_delta, duration);
 		}
 
