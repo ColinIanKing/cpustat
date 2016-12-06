@@ -16,6 +16,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * Author: Colin Ian King <colin.king@canonical.com>
+ *
+ * Note: Code is optimised to reduce CPU overhead. There are some arcane
+ * string scanning and string formatting specific functions to remove the
+ * overhead of the use of sscanf and sprintf.
  */
 #define _GNU_SOURCE
 
@@ -1830,17 +1834,19 @@ static void get_cpustats(
  */
 static double cpu_freq_average(uint32_t max_cpus)
 {
-	uint32_t i, n = 0;
+	unsigned int i, n = 0;
 	double total_freq = 0;
 
 	for (i = 0; i < max_cpus; i++) {
-		char path[PATH_MAX];
+		char filename[PATH_MAX], *fnptr;
 		int fd;
 
-		snprintf(path, sizeof(path),
-			"/sys/devices/system/cpu/cpu%" PRIu32
-			"/cpufreq/scaling_cur_freq", i);
-		if (LIKELY((fd = open(path, O_RDONLY)) > -1)) {
+		fnptr = filename;
+		fnptr += putstr(fnptr, 28, "/sys/devices/system/cpu/cpu");
+		fnptr += putuint(fnptr, i);
+		fnptr += putstr(fnptr, 25, "/cpufreq/scaling_cur_freq");
+
+		if (LIKELY((fd = open(filename, O_RDONLY)) > -1)) {
 			char buffer[64];
 			ssize_t ret;
 
