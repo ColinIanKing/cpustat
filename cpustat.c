@@ -1997,7 +1997,7 @@ static inline void load_online_dump(const uint32_t max_cpus)
 
 	ptr += putstr(ptr, 10, "Load Avg ");
 	ptr += putstr(ptr, 20, load_average());
-	ptr += putstr(ptr, 10, "Freq Avg ");
+	ptr += putstr(ptr, 12, ", Freq Avg ");
 	ptr += putstr(ptr, 20, cpu_freq_format(avg_cpu_freq));
 	ptr += putstr(ptr, 2, ", ");
 	ptr += putstr(ptr, 10, cpus_online());
