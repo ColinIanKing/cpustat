@@ -330,7 +330,7 @@ static inline double duration_round(const double duration)
 }
 
 /*
- *   putdec()
+ *  putdec()
  *	put a decimal value v into string str with max
  *	length of nbytes
  */
@@ -353,6 +353,36 @@ static int OPTIMIZE3 HOT putdec(char *str, int nbytes, int v, bool zeropad)
 		*(ptr--) = pad;
 
 	return ret;
+}
+
+
+/*
+ *  putuint()
+ *	put unsigned decimal value v into str
+ *      with no leading spaces.
+ */
+static int  OPTIMIZE3 HOT putuint(char *str, unsigned int v)
+{
+	register char *ptr = str;
+	register char *p1, *p2, *mid;
+
+	do {
+		*(ptr++) = '0' + (v % 10);
+		v /= 10;
+	} while (v);
+
+	*ptr = '\0';
+
+	/* and reverse */
+	mid = str + ((ptr - str) >> 1);
+	p1 = str;
+	p2 = ptr - 1;
+	while (p1 != mid) {
+		register char c = *p1;
+		*(p1++) = *p2;
+		*(p2--) = c;
+	}
+	return ptr - str;
 }
 
 /*
@@ -379,9 +409,9 @@ static int OPTIMIZE3 HOT putdouble(char *str, double v)
  */
 static int OPTIMIZE3 HOT putstr(char *dst, int max, char *src)
 {
-	int n = 0;
+	register int n = 0;
 
-	while ((n < max) && (*(dst++) = *(src++)))
+	while (LIKELY(*(dst++) = *(src++)) && LIKELY(n < max))
 		n++;
 	*dst = '\0';
 	return n;
@@ -740,7 +770,7 @@ static inline unsigned int OPTIMIZE3 HOT count_bits(const unsigned int val)
 static char *get_pid_cmdline(const pid_t pid)
 {
 	static char buffer[4096];
-	char *ptr = NULL;
+	char *ptr;
 	int fd;
 	ssize_t ret;
 	pid_info_t *info;
@@ -749,7 +779,12 @@ static char *get_pid_cmdline(const pid_t pid)
 	struct stat statbuf;
 	bool statok = false;
 
-	snprintf(path, sizeof(path), "/proc/%i/cmdline", pid);
+	ptr = path;
+	ptr += putstr(ptr, 6, "/proc/");
+	ptr += putuint(ptr, pid);
+	putstr(ptr, 8, "/cmdline");
+	ptr = NULL;
+
 	if (UNLIKELY((fd = open(path, O_RDONLY)) < 0))
 		return NULL;
 
