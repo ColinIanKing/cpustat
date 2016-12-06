@@ -334,11 +334,11 @@ static inline double duration_round(const double duration)
 }
 
 /*
- *  putdec()
+ *  putint()
  *	put a decimal value v into string str with max
  *	length of nbytes
  */
-static int OPTIMIZE3 HOT putdec(char *str, int nbytes, int v, bool zeropad)
+static int OPTIMIZE3 HOT putint(char *str, int nbytes, int v, bool zeropad)
 {
         register char *ptr = str + nbytes;
 	int ret = nbytes;
@@ -397,9 +397,9 @@ static int OPTIMIZE3 HOT putdouble(char *str, double v)
 {
 	v += 0.005;	/* Round up */
 
-	(void)putdec(str, 3, (int)v, false);
+	(void)putint(str, 3, (int)v, false);
 	str[3] = '.';
-	(void)putdec(str + 4, 2, v * 100.0 - (double)((int)v * 100), true);
+	(void)putint(str + 4, 2, v * 100.0 - (double)((int)v * 100), true);
 	str[2] = (str[2] == ' ') ? '0' : str[2];
 	str[6] = ' ';
 	str[7] = '\0';
@@ -408,18 +408,28 @@ static int OPTIMIZE3 HOT putdouble(char *str, double v)
 }
 
 /*
- *  putdouble_point1
- *	put a double in %.1 format with trailing space
+ *  putdouble_decpl
+ *	put a double with decpl number of decimal places with trailing space, up to 4 decpl
  */
-static int OPTIMIZE3 HOT putdouble_point1(char *str, double v)
+static int OPTIMIZE3 HOT putdouble_decpl(char *str, double v, int decpl)
 {
 	char *ptr = str;
+	static const double scales[] = {
+		1.0,
+		10.0,
+		100.0,
+		1000.0,
+		10000.0
+	};
+	double scale;
 
-	v += 0.05;	/* Round up */
+	decpl = decpl > 4 ? 4 : decpl;
+	scale = scales[decpl];
 
+	v += 0.5 / scale;	/* Round up */
 	ptr += putuint(ptr, (int)v);
 	*(ptr++) = '.';
-	ptr += putdec(ptr, 1, v * 10.0 - (double)((int)v * 10), true);
+	ptr += putint(ptr, decpl, scale * v - (double)((int)v * scale), true);
 	*ptr = '\0';
 
 	return ptr - str;
@@ -1032,13 +1042,13 @@ static void info_banner_dump(const double time_now)
 		get_tm(time_now, &tm);
 		strncpy(ptr, "  (", 3);
 		ptr += 3;
-		ptr += putdec(ptr, 2, tm.tm_hour, false);
+		ptr += putint(ptr, 2, tm.tm_hour, false);
 		*ptr = ':';
 		ptr++;
-		ptr += putdec(ptr, 2, tm.tm_min, false);
+		ptr += putint(ptr, 2, tm.tm_min, false);
 		*ptr = ':';
 		ptr++;
-		ptr += putdec(ptr, 2, tm.tm_sec, false);
+		ptr += putint(ptr, 2, tm.tm_sec, false);
 		*ptr = ')';
 		ptr++;
 	}
@@ -1075,11 +1085,11 @@ static void info_dump(
 	*(ptr++) = ' ';
 	ptr += putdouble(ptr, cpu_s_usage);
 	*(ptr++) = ' ';
-	ptr += putdec(ptr, 5, info->pid, false);
+	ptr += putint(ptr, 5, info->pid, false);
 	*(ptr++) = ' ';
 	*(ptr++) = info->state;
 	*(ptr++) = ' ';
-	ptr += putdec(ptr, 4, info->processor, false);
+	ptr += putint(ptr, 4, info->processor, false);
 	*(ptr++) = ' ';
 	ptr += putstr(ptr, 20, secs_to_str(cpu_time));
 	*(ptr++) = ' ';
@@ -1707,13 +1717,13 @@ static inline void proc_stat_dump(
 	const double scale = 1.0 / duration;
 	char buffer[128], *ptr = buffer;
 
-	ptr += putdouble_point1(ptr, scale * delta->ctxt);
+	ptr += putdouble_decpl(ptr, scale * delta->ctxt, 1);
 	ptr += putstr(ptr, 9, " Ctxt/s, ");
-	ptr += putdouble_point1(ptr, scale * delta->irq);
+	ptr += putdouble_decpl(ptr, scale * delta->irq, 1);
 	ptr += putstr(ptr, 8, " IRQ/s, ");
-	ptr += putdouble_point1(ptr, scale * delta->softirq);
+	ptr += putdouble_decpl(ptr, scale * delta->softirq, 1);
 	ptr += putstr(ptr, 12, " softIRQ/s, ");
-	ptr += putdouble_point1(ptr, scale * delta->processes);
+	ptr += putdouble_decpl(ptr, scale * delta->processes, 1);
 	ptr += putstr(ptr, 14, " new tasks/s, ");
 	ptr += putuint(ptr, delta->running);
 	ptr += putstr(ptr, 10, " running, ");
