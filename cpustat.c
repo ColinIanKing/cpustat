@@ -1904,7 +1904,7 @@ static double cpu_freq_average(uint32_t max_cpus)
 static char *cpu_freq_format(double freq)
 {
 	static char buffer[40];
-	char *suffix = "EHz";
+	char *suffix = "EHz", *ptr = buffer;
 	double scale = 1e18;
 	size_t i;
 
@@ -1916,8 +1916,9 @@ static char *cpu_freq_format(double freq)
 		}
 	}
 
-	snprintf(buffer, sizeof(buffer), "%.2f %s",
-		freq / scale, suffix);
+	ptr += putdouble_decpl(buffer, freq / scale, 2);
+	*(ptr++) = ' ';
+	ptr += putstr(ptr, 3, suffix);
 
 	return buffer;
 }
