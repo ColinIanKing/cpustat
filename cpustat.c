@@ -191,10 +191,11 @@ typedef struct {
 } scale_t;
 
 typedef struct {
-	uint32_t hash;
-	uint16_t offset;
+	uint32_t hash;			/* Hash of /proc/stat field tag */
+	uint16_t offset;		/* offset into proc_stat_t struct */
 } proc_stat_fields_t;
 
+/* ncurses mode or std tty mode display functions */
 typedef struct {
 	void (*df_setup)(void);
 	void (*df_endwin)(void);
@@ -206,6 +207,7 @@ typedef struct {
 	void (*df_linebreak)(void);
 } display_funcs_t;
 
+/* CPU frequency scale suffixes */
 static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e1,  1e0,  "Hz" },
 	{ 1e4,  1e3,  "KHz" },
@@ -216,6 +218,7 @@ static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ -1.0, -1.0,  NULL }
 };
 
+/* seconds scale suffixes, secs, mins, hours, etc */
 static const scale_t second_scales[] = {
 	{ 's',	1 },
 	{ 'm',	60 },
@@ -449,7 +452,6 @@ static int OPTIMIZE3 HOT putstr(char *dst, int max, char *src)
 	return n;
 }
 
-
 /*
  *   cpustat_top_setup
  *	setup display in top mode
@@ -598,6 +600,7 @@ static void cpustat_normal_linebreak(void)
 	putc('\n', stdout);
 }
 
+/* 'top' mode display functions */
 static display_funcs_t df_top = {
 	cpustat_top_setup,
 	cpustat_top_endwin,
@@ -609,6 +612,7 @@ static display_funcs_t df_top = {
 	cpustat_noop,
 };
 
+/* normal tty mode display functions */
 static display_funcs_t df_normal = {
 	cpustat_noop,
 	cpustat_noop,
@@ -2021,7 +2025,10 @@ unknown:
 
 }
 
-
+/*
+ *  load_online_dump()
+ *	dump load and cpu related stats
+ */
 static inline void load_online_dump(const uint32_t max_cpus)
 {
 	double avg_cpu_freq = cpu_freq_average(max_cpus);
