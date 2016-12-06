@@ -1,3 +1,25 @@
+cpustat (0.02.01-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Remove df_putc, we don't use it now
+  * Minor cleanup, add more comments
+  * Remove another slow snprintf in cpu_freq_format
+  * Generalise putdouble_point1 to n decimal places, rename putdec to putint
+  * Remove another snprintf from proc_stat_dump
+  * Add command and spacing before Freq Avg text
+  * Remove another use of expensive sprintf
+  * Add putuint helper and remove another overly used snprintf
+  * Fix incorrect closing square bracket around kernel thread
+  * Remove another snprintf and replace with more optimal code
+  * Add some minor optimisations
+  * Optimise printing so we don't use printf which is expensive
+  * Add comments to putdec function
+  * Generalise putdec function to handle any decimal sized string
+  * Use inline popcount to count bits
+  * Ensure in top mode we don't fall off bottom of terminal
+
+ -- Colin King <colin.king@canonical.com>  Tue, 6 Dec 2016 12:04:42 +0000
+
 cpustat (0.02.00-1) unstable; urgency=medium
 
   * Makefile: bump version to 0.02.00
