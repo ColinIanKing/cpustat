@@ -202,7 +202,6 @@ typedef struct {
 	void (*df_clear)(void);
 	void (*df_refresh)(void);
 	void (*df_winsize)(bool redo);
-	void (*df_putc)(int ch);
 	void (*df_putstrnl)(char *str, int n);
 	void (*df_linebreak)(void);
 } display_funcs_t;
@@ -535,26 +534,6 @@ static inline void cpustat_top_refresh(void)
 }
 
 /*
- *  cpustat_top_putc()
- *	cpustat put char in top mode
- */
-static void cpustat_top_putc(int ch)
-{
-	if (UNLIKELY(cury >= rows - 1))
-		return;
-	addch(ch);
-}
-
-/*
- *  cpustat_nomnal_putc()
- *	cpustat put char in normal mode
- */
-static void cpustat_normal_putc(int ch)
-{
-	fputc(ch, stdout);
-}
-
-/*
  *  cpustat_top_putstrnl()
  * 	cpustat put string in top mode with newline
  *	(or not if there is potential for line wrap)
@@ -607,7 +586,6 @@ static display_funcs_t df_top = {
 	cpustat_top_clear,
 	cpustat_top_refresh,
 	cpustat_top_winsize,
-	cpustat_top_putc,
 	cpustat_top_putstrnl,
 	cpustat_noop,
 };
@@ -619,7 +597,6 @@ static display_funcs_t df_normal = {
 	cpustat_noop,
 	cpustat_noop,
 	cpustat_generic_winsize,
-	cpustat_normal_putc,
 	cpustat_normal_putstrnl,
 	cpustat_normal_linebreak,
 };
