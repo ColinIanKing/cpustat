@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH CPUSTAT 8 "Apri 28, 2016"
+.TH CPUSTAT 8 "Dec 6, 2016"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -41,7 +41,6 @@ for very short lived processes that exist between each sample period.
 For each running task that has consumed some CPU during the sample time, the
 following information is displayed:
 .TS
-center;
 lBw(10) lBw(50)
 l l.
 Heading	T{
@@ -60,7 +59,7 @@ PID	T{
 Process ID
 T}
 S	T{
-Process State, R (Running), S (Sleeping), D (Waiting, Disk Sleep), T (Stopped), t (Tracing stopped), W (Paging), X (Dead), x (Dead), K (Wakekill), W (Waking), P (Parked).
+Process State
 T}
 CPU	T{
 CPU used by the process at time of sampling.
@@ -78,6 +77,20 @@ gathering and reporting. It is therefore ideal for small embedded devices where
 CPU is limited where measuring CPU utilisation may affect the overall
 CPU statistics. For this reason, it is not as complex as tools such as top(1)
 that have a more feature rich user interface.
+.SH PROCESS STATE CODES
+.TS
+l l.
+R	Running
+S	Sleeping
+D	Waiting, Disk Sleep
+T	Stopped
+t	Tracing stopped
+W	Paging
+X or x	Dead
+K	Wakekill
+W	Waking
+P	Parked
+.TE
 .SH OPTIONS
 cpustat options are as follow:
 .TP
