@@ -390,7 +390,7 @@ static int  OPTIMIZE3 HOT putuint(char *str, unsigned int v)
 }
 
 /*
- * putdouble()
+ *  putdouble()
  *	put a double in %6.2 with trailing space
  */
 static int OPTIMIZE3 HOT putdouble(char *str, double v)
@@ -405,6 +405,24 @@ static int OPTIMIZE3 HOT putdouble(char *str, double v)
 	str[7] = '\0';
 
 	return 6;
+}
+
+/*
+ *  putdouble_point1
+ *	put a double in %.1 format with trailing space
+ */
+static int OPTIMIZE3 HOT putdouble_point1(char *str, double v)
+{
+	char *ptr = str;
+
+	v += 0.05;	/* Round up */
+
+	ptr += putuint(ptr, (int)v);
+	*(ptr++) = '.';
+	ptr += putdec(ptr, 1, v * 10.0 - (double)((int)v * 10), true);
+	*ptr = '\0';
+
+	return ptr - str;
 }
 
 /*
@@ -1266,7 +1284,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 	sample_delta_list_t *sdl;
 	unsigned int bucket[MAX_DIVISIONS], max_bucket = 0, valid = 0, i, total = 0;
 	double min = DBL_MAX, max = -DBL_MAX, division, prev;
-	double scale = 100.0 / (double)nr_ticks;
+	const double scale = 100.0 / (double)nr_ticks;
 
 	memset(bucket, 0, sizeof(bucket));
 
@@ -1686,19 +1704,22 @@ static inline void proc_stat_dump(
 	const proc_stat_t *delta,
 	const double duration)
 {
-	double scale = 1.0 / duration;
-	char buffer[128];
-	int n;
+	const double scale = 1.0 / duration;
+	char buffer[128], *ptr = buffer;
 
-	n = snprintf(buffer, sizeof(buffer), "%.1f Ctxt/s, %.1f IRQ/s, %.1f softIRQ/s, "
-		"%.1f new tasks/s, %" PRIu64 " running, %" PRIu64 " blocked",
-		scale * delta->ctxt,
-		scale * delta->irq,
-		scale * delta->softirq,
-		scale * delta->processes,
-		delta->running,
-		delta->blocked);
-	df.df_putstrnl(buffer, n);
+	ptr += putdouble_point1(ptr, scale * delta->ctxt);
+	ptr += putstr(ptr, 9, " Ctxt/s, ");
+	ptr += putdouble_point1(ptr, scale * delta->irq);
+	ptr += putstr(ptr, 8, " IRQ/s, ");
+	ptr += putdouble_point1(ptr, scale * delta->softirq);
+	ptr += putstr(ptr, 12, " softIRQ/s, ");
+	ptr += putdouble_point1(ptr, scale * delta->processes);
+	ptr += putstr(ptr, 14, " new tasks/s, ");
+	ptr += putuint(ptr, delta->running);
+	ptr += putstr(ptr, 10, " running, ");
+	ptr += putuint(ptr, delta->blocked);
+	ptr += putstr(ptr, 9, " blocked");
+	df.df_putstrnl(buffer, ptr - buffer);
 }
 
 /*
