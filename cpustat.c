@@ -322,7 +322,6 @@ static void handle_sigwinch(int sig)
 {
 	(void)sig;
 
-	df.df_winsize(true);
 	resized = true;
 }
 
@@ -2252,9 +2251,10 @@ int main(int argc, char **argv)
 retry:
 		if (UNLIKELY(select(0, NULL, NULL, NULL, &tv) < 0)) {
 			if (errno == EINTR) {
-				if (!resized)
+				if (!resized) {
 					stop_cpustat = true;
-				else {
+					df.df_winsize(true);
+				} else {
 					redo = true;
 					if (timeval_to_double(&tv) > 0.0)
 						goto retry;
