@@ -1,3 +1,13 @@
+cpustat (0.02.02-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Remove some redundant pointer increments
+  * Update copyright year
+  * Add libncursesw5-dev to snapcraft yaml
+  * Don't do a resize() in SIGWINCH signal handler
+
+ -- Colin King <colin.king@canonical.com>  Wed, 1 Mar 2017 23:28:27 +0000
+
 cpustat (0.02.01-1) unstable; urgency=medium
 
   * Makefile: bump version
