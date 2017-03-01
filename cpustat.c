@@ -1748,7 +1748,7 @@ static void get_cpustats(
 		fnptr = filename;
 		fnptr += putstr(fnptr, 6, "/proc/");
 		fnptr += putstr(fnptr, PATH_MAX - 6, entry->d_name);
-		fnptr += putstr(fnptr, 5, "/stat");
+		putstr(fnptr, 5, "/stat");
 		if ((fd = open(filename, O_RDONLY)) < 0)
 			continue;
 
@@ -1855,7 +1855,7 @@ static double cpu_freq_average(uint32_t max_cpus)
 		fnptr = filename;
 		fnptr += putstr(fnptr, 28, "/sys/devices/system/cpu/cpu");
 		fnptr += putuint(fnptr, i);
-		fnptr += putstr(fnptr, 25, "/cpufreq/scaling_cur_freq");
+		putstr(fnptr, 25, "/cpufreq/scaling_cur_freq");
 
 		if (LIKELY((fd = open(filename, O_RDONLY)) > -1)) {
 			char buffer[64];
@@ -1898,7 +1898,7 @@ static char *cpu_freq_format(double freq)
 
 	ptr += putdouble_decpl(buffer, freq / scale, 2);
 	*(ptr++) = ' ';
-	ptr += putstr(ptr, 3, suffix);
+	putstr(ptr, 3, suffix);
 
 	return buffer;
 }
