@@ -1665,7 +1665,7 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 		}
 next:		;
 	}
-	fclose(fp);
+	(void)fclose(fp);
 	return 0;
 }
 
@@ -1918,7 +1918,7 @@ static char *cpus_online(void)
 	if (UNLIKELY((fd = open("/sys/devices/system/cpu/online", O_RDONLY)) < 0))
 		goto unknown;
 	ret = read(fd, buffer, sizeof(buffer) - 1);
-	close(fd);
+	(void)close(fd);
 	if (UNLIKELY(ret < 0))
 		goto unknown;
 
