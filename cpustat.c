@@ -258,6 +258,7 @@ static bool resized;			/* window resized */
 static int rows = 25;			/* tty size, rows */
 static int cols = 80;			/* tty size, columns */
 static int cury = 0;			/* current y curpos */
+static int pid_max_digits;		/* maximum digits for PIDs */
 
 static display_funcs_t df;		/* display functions */
 
@@ -315,6 +316,37 @@ static const int signals[] = {
 };
 
 /*
+ *  get_pid_max_digits()
+ *	determine (or guess) maximum digits of pids
+ */
+static int get_pid_max_digits(void)
+{
+	ssize_t n;
+	int digits, fd;
+	const int default_digits = 6;
+	const int min_digits = 5;
+	char buf[32];
+
+	digits = default_digits;
+	fd = open("/proc/sys/kernel/pid_max", O_RDONLY);
+	if (fd < 0)
+		goto ret;
+	n = read(fd, buf, sizeof(buf) - 1);
+	(void)close(fd);
+	if (n < 0)
+		goto ret;
+
+	buf[n] = '\0';
+	digits = 0;
+	while (buf[digits] >= '0' && buf[digits] <= '9')
+		digits++;
+	if (digits < min_digits)
+		digits = min_digits;
+ret:
+	return digits;
+}
+
+/*
  *  handle_sigwinch()
  *      flag window resize on SIGWINCH
  */
@@ -366,7 +398,7 @@ static int OPTIMIZE3 HOT putint(char *str, int nbytes, int v, bool zeropad)
  *	put unsigned decimal value v into str
  *      with no leading spaces.
  */
-static int  OPTIMIZE3 HOT putuint(char *str, unsigned int v)
+static int OPTIMIZE3 HOT putuint(char *str, unsigned int v)
 {
 	register char *ptr = str;
 	register char *p1, *p2, *mid;
@@ -1013,8 +1045,22 @@ static int info_compare_total(const void *const item1, const void *const item2)
  */
 static void info_banner_dump(const double time_now)
 {
-	char str[256] = "  %CPU   %USR   %SYS   PID S  CPU    Time Task";
-	char *ptr = str + strlen(str);
+	static char str[256];
+	static char *hdrptr;
+	char *ptr = str;
+	int i;
+
+	if (!hdrptr) {
+		hdrptr = str;
+		strncpy(hdrptr, "  %CPU   %USR   %SYS   ", sizeof(str));
+		hdrptr += 23;
+		for (i = 0; i < pid_max_digits - 5; i++, hdrptr++)
+			*hdrptr = ' ';
+		strncpy(hdrptr, "PID S  CPU    Time Task",
+			sizeof(str) - (3 + pid_max_digits));
+		hdrptr += 23;
+	}
+	ptr = hdrptr;
 
 	if (UNLIKELY(opt_flags & OPT_TIMESTAMP)) {
 		struct tm tm;
@@ -1065,7 +1111,7 @@ static void info_dump(
 	*(ptr++) = ' ';
 	ptr += putdouble(ptr, cpu_s_usage);
 	*(ptr++) = ' ';
-	ptr += putint(ptr, 5, info->pid, false);
+	ptr += putint(ptr, pid_max_digits, info->pid, false);
 	*(ptr++) = ' ';
 	*(ptr++) = info->state;
 	*(ptr++) = ' ';
@@ -2184,6 +2230,8 @@ int main(int argc, char **argv)
 		}
 	}
 	opt_threshold *= duration_secs;
+
+	pid_max_digits = get_pid_max_digits();
 
 	memset(&new_action, 0, sizeof(new_action));
 	for (i = 0; signals[i] != -1; i++) {
