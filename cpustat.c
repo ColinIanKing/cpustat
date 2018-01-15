@@ -705,7 +705,7 @@ static inline uint64_t OPTIMIZE3 HOT get_ticks(void)
 static char *secs_to_str(const double secs)
 {
 	static char buf[16];
-	int i;
+	size_t i;
 
 	for (i = 0; i < 5; i++) {
 		if (secs <= second_scales[i + 1].scale)
@@ -1481,7 +1481,7 @@ static uint32_t OPTIMIZE3 HOT hash_djb2a(const pid_t pid, const char *str)
 static void cpu_stat_free_contents(
 	cpu_stat_t *cpu_stats[])	/* CPU stat hash table */
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < TABLE_SIZE; i++) {
 		cpu_stat_t *cs = cpu_stats[i];
@@ -1607,7 +1607,7 @@ static void cpu_stat_diff(
 	cpu_stat_t *const cpu_stats_old[],	/* old CPU stats samples */
 	cpu_stat_t *const cpu_stats_new[])	/* new CPU stats samples */
 {
-	int i;
+	size_t i;
 	cpu_stat_t *sorted = NULL;
 	const bool do_sample_add = (opt_flags & OPT_SAMPLES);
 
@@ -1890,7 +1890,7 @@ static void get_cpustats(
  */
 static double cpu_freq_average(uint32_t max_cpus)
 {
-	unsigned int i, n = 0;
+	size_t i, n = 0;
 	double total_freq = 0;
 
 	for (i = 0; i < max_cpus; i++) {
