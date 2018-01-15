@@ -214,7 +214,6 @@ static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e10, 1e9,  "GHz" },
 	{ 1e13, 1e12, "THz" },
 	{ 1e16, 1e15, "PHz" },
-	{ -1.0, -1.0,  NULL }
 };
 
 /* seconds scale suffixes, secs, mins, hours, etc */
@@ -1934,7 +1933,7 @@ static char *cpu_freq_format(double freq)
 	double scale = 1e18;
 	size_t i;
 
-	for (i = 0; cpu_freq_scale[i].suffix; i++) {
+	for (i = 0; i < SIZEOF_ARRAY(cpu_freq_scale); i++) {
 		if (freq < cpu_freq_scale[i].threshold) {
 			suffix = cpu_freq_scale[i].suffix;
 			scale = cpu_freq_scale[i].scale;
