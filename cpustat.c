@@ -726,7 +726,7 @@ static void get_tm(const double time_now, struct tm *tm)
 	time_t now = (time_t)time_now;
 
 	if (UNLIKELY((now == ((time_t) -1)))) {
-		memset(tm, 0, sizeof(struct tm));
+		memset(tm, 0, sizeof(*tm));
 	} else {
 		(void)localtime_r(&now, tm);
 	}
@@ -885,7 +885,7 @@ no_cmd:
 		 * a new info struct
 		 */
 		if (!info) {
-			info = malloc(sizeof(pid_info_t));
+			info = malloc(sizeof(*info));
 			new_info = true;
 		}
 
@@ -977,7 +977,7 @@ static void OPTIMIZE3 HOT sample_add(
 	 * list since time is assumed to be increasing
 	 */
 	if (!found) {
-		if (UNLIKELY((sdl = malloc(sizeof(sample_delta_list_t))) == NULL)) {
+		if (UNLIKELY((sdl = malloc(sizeof(*sdl))) == NULL)) {
 			fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
@@ -994,7 +994,7 @@ static void OPTIMIZE3 HOT sample_add(
 	}
 
 	/* Now append the sdi onto the list */
-	if (UNLIKELY((sdi = malloc(sizeof(sample_delta_item_t))) == NULL)) {
+	if (UNLIKELY((sdi = malloc(sizeof(*sdi))) == NULL)) {
 		fprintf(stderr, "Cannot allocate sample delta item\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1170,7 +1170,7 @@ static void samples_dump(
 	double first_time = -1.0;
 
 	if (UNLIKELY((sorted_cpu_infos =
-	     calloc(cpu_info_list_length, sizeof(cpu_info_t*))) == NULL)) {
+	     calloc(cpu_info_list_length, sizeof(*sorted_cpu_infos))) == NULL)) {
 		fprintf(stderr,
 			"Cannot allocate buffer for sorting cpu_infos\n");
 		exit(EXIT_FAILURE);
@@ -1389,11 +1389,11 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 			return info;
 	}
 
-	if (UNLIKELY((info = malloc(sizeof(cpu_info_t))) == NULL)) {
+	if (UNLIKELY((info = malloc(sizeof(*info))) == NULL)) {
 		fprintf(stderr, "Cannot allocate CPU info\n");
 		exit(EXIT_FAILURE);
 	}
-	memcpy(info, new_info, sizeof(cpu_info_t));
+	memcpy(info, new_info, sizeof(*info));
 
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
@@ -1533,7 +1533,7 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		cs_new = cpu_stat_free_list;
 		cpu_stat_free_list = cs_new->next;
 	} else {
-		if (UNLIKELY((cs_new = malloc(sizeof(cpu_stat_t))) == NULL)) {
+		if (UNLIKELY((cs_new = malloc(sizeof(*cs_new))) == NULL)) {
 			fprintf(stderr,
 				"Out of memory allocating a cpu stat\n");
 			exit(1);
@@ -1682,7 +1682,7 @@ static int get_proc_stat(proc_stat_t *proc_stat)
 	FILE *fp;
 	char buffer[4096];
 
-	memset(proc_stat, 0, sizeof(proc_stat_t));
+	memset(proc_stat, 0, sizeof(*proc_stat));
 
 	fp = fopen("/proc/stat", "r");
 	if (UNLIKELY(!fp))
@@ -2252,8 +2252,9 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	cpu_stats_old = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
-	cpu_stats_new = calloc(TABLE_SIZE, sizeof(cpu_stat_t*));
+	cpu_stats_old = calloc(TABLE_SIZE, sizeof(*cpu_stats_old));
+	cpu_stats_new = calloc(TABLE_SIZE, sizeof(*cpu_stats_new));
+
 	if (UNLIKELY(cpu_stats_old == NULL || cpu_stats_new == NULL)) {
 		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
