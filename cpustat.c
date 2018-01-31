@@ -1046,7 +1046,7 @@ static void info_banner_dump(const double time_now)
 {
 	static char str[256];
 	static char *hdrptr;
-	char *ptr = str;
+	char *ptr;
 	int i;
 
 	if (!hdrptr) {
