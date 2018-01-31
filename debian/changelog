@@ -1,3 +1,15 @@
+cpustat (0.02.04-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * debian/control: update Standards-Version to 4.1.2
+  * Remove redundant initialization of pointer 'str'
+  * Use sizeof on object
+  * Make array index variables size_t
+  * Use SIZEOF_ARRAY on cpu_freq_scale rather than a terminator marker
+  * Update copyright year
+
+ -- Colin King <colin.king@canonical.com>  Wed, 31 Jan 2018 10:49:22 +0000
+
 cpustat (0.02.03-1) unstable; urgency=medium
 
   * Makefile: bump version
