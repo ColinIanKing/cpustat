@@ -208,7 +208,7 @@ typedef struct {
 } display_funcs_t;
 
 /* CPU frequency  scale suffixes */
-static cpu_freq_scale_t cpu_freq_scale[] = {
+static const cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e1,  1e0,  "Hz" },
 	{ 1e4,  1e3,  "KHz" },
 	{ 1e7,  1e6,  "MHz" },
