@@ -371,7 +371,11 @@ static inline double duration_round(const double duration)
  *	put a decimal value v into string str with max
  *	length of nbytes
  */
-static int OPTIMIZE3 HOT putint(char *str, int nbytes, int v, bool zeropad)
+static int OPTIMIZE3 HOT putint(
+	char * const str,
+	int nbytes,
+	int v,
+	const bool zeropad)
 {
         register char *ptr = str + nbytes;
 	int ret = nbytes;
@@ -398,7 +402,7 @@ static int OPTIMIZE3 HOT putint(char *str, int nbytes, int v, bool zeropad)
  *	put unsigned decimal value v into str
  *      with no leading spaces.
  */
-static int OPTIMIZE3 HOT putuint(char *str, unsigned int v)
+static int OPTIMIZE3 HOT putuint(char *const str, unsigned int v)
 {
 	register char *ptr = str;
 	register char *p1, *p2, *mid;
@@ -447,7 +451,10 @@ static int OPTIMIZE3 HOT putdouble(
  *  putdouble_decpl
  *	put a double with decpl number of decimal places with trailing space, up to 4 decpl
  */
-static int OPTIMIZE3 HOT putdouble_decpl(char *str, double v, int decpl)
+static int OPTIMIZE3 HOT putdouble_decpl(
+	char * const str,
+	double v,
+	int decpl)
 {
 	char *ptr = str;
 	static const double scales[] = {
@@ -475,7 +482,7 @@ static int OPTIMIZE3 HOT putdouble_decpl(char *str, double v, int decpl)
  *  putstr()
  *	append a string and return bytes added
  */
-static int OPTIMIZE3 HOT putstr(char *dst, int max, char *src)
+static int OPTIMIZE3 HOT putstr(char *dst, const int max, char *src)
 {
 	register int n = 0;
 
@@ -503,7 +510,7 @@ static void cpustat_top_setup(void)
  *  cpustat_generic_winsize()
  *	get tty size in top mode
  */
-static void cpustat_generic_winsize(bool redo)
+static void cpustat_generic_winsize(const bool redo)
 {
 	if (redo) {
 		struct winsize ws;
@@ -518,7 +525,7 @@ static void cpustat_generic_winsize(bool redo)
 	}
 }
 
-static void cpustat_top_winsize(bool redo)
+static void cpustat_top_winsize(const bool redo)
 {
 	(void)redo;
 
@@ -572,14 +579,13 @@ static inline void cpustat_top_refresh(void)
  * 	cpustat put string in top mode with newline
  *	(or not if there is potential for line wrap)
  */
-static void cpustat_top_putstrnl(char *str, int n)
+static void cpustat_top_putstrnl(char * const str, const int n)
 {
 	if (UNLIKELY(cury >= rows))
 		return;
 
 	if (UNLIKELY(n > cols)) {
-		n = cols;
-		str[n] = '\0';
+		str[cols] = '\0';
 	} else {
 		str[n] = '\n';
 		str[n + 1] = '\0';
@@ -593,7 +599,7 @@ static void cpustat_top_putstrnl(char *str, int n)
  *  cpustat_normal_putstr(()
  * 	cpustat put string in normal mode with newline
  */
-static void cpustat_normal_putstrnl(char *str, int n)
+static void cpustat_normal_putstrnl(char * const str, int n)
 {
 	if (UNLIKELY(n > cols))
 		n = cols;
@@ -614,7 +620,7 @@ static void cpustat_normal_linebreak(void)
 }
 
 /* 'top' mode display functions */
-static display_funcs_t df_top = {
+static const display_funcs_t df_top = {
 	cpustat_top_setup,
 	cpustat_top_endwin,
 	cpustat_top_clear,
@@ -625,7 +631,7 @@ static display_funcs_t df_top = {
 };
 
 /* normal tty mode display functions */
-static display_funcs_t df_normal = {
+static const display_funcs_t df_normal = {
 	cpustat_noop,
 	cpustat_noop,
 	cpustat_noop,
@@ -712,7 +718,6 @@ static char *secs_to_str(const double secs)
 	size_t i;
 	double s = secs;
 
-
 	for (i = 0; i < 5; i++) {
 		if (s <= second_scales[i + 1].scale)
 			break;
@@ -729,7 +734,7 @@ static char *secs_to_str(const double secs)
  *  get_tm()
  *	fetch tm, will set fields to zero if can't get
  */
-static void get_tm(const double time_now, struct tm *tm)
+static void get_tm(const double time_now, struct tm * const tm)
 {
 	time_t now = (time_t)time_now;
 
@@ -755,7 +760,7 @@ static inline double timeval_to_double(const struct timeval *const tv)
  */
 static inline void double_to_timeval(
 	const double val,
-	struct timeval *tv)
+	struct timeval * const tv)
 {
 	tv->tv_sec = val;
 	tv->tv_usec = (val - (time_t)val) * 1000000.0;
@@ -1098,8 +1103,8 @@ static void info_dump(
 	const uint64_t sticks,
 	const uint64_t total_ticks,
 	const cpu_info_t *info,
-	double *u_total,
-	double *s_total)
+	double *const u_total,
+	double *const s_total)
 {
 	char buffer[512], *ptr = buffer;
 
@@ -1685,7 +1690,7 @@ static void cpu_stat_diff(
  *  get_proc_stat()
  *	read /proc/stat
  */
-static int get_proc_stat(proc_stat_t *proc_stat)
+static int get_proc_stat(proc_stat_t * const proc_stat)
 {
 	FILE *fp;
 	char buffer[4096];
@@ -1729,7 +1734,7 @@ next:		;
 static inline void proc_stat_diff(
 	const proc_stat_t *old,
 	const proc_stat_t *new,
-	proc_stat_t *delta)
+	proc_stat_t *const delta)
 {
 	delta->ctxt = new->ctxt - old->ctxt;
 	delta->irq = new->irq - old->irq;
@@ -1896,7 +1901,7 @@ static void get_cpustats(
  *  cpu_freq_average()
  *	get average CPU frequency
  */
-static double cpu_freq_average(uint32_t max_cpus)
+static double cpu_freq_average(const uint32_t max_cpus)
 {
 	size_t i, n = 0;
 	double total_freq = 0;
@@ -1934,7 +1939,7 @@ static double cpu_freq_average(uint32_t max_cpus)
  *  cpu_freq_format()
  *	scale cpu freq into a human readable form
  */
-static char *cpu_freq_format(double freq)
+static char *cpu_freq_format(const double freq)
 {
 	static char buffer[40];
 	char *suffix = "EHz", *ptr = buffer;
