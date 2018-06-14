@@ -435,7 +435,7 @@ static int OPTIMIZE3 HOT putdouble(
 	const double val,
 	const int base)
 {
-	double v = val + 0.005; /* Round up */
+	const double v = val + 0.005; /* Round up */
 
 	(void)putint(str, 3, (int)v, false);
 	str[3] = '.';
@@ -722,7 +722,7 @@ static char *secs_to_str(const double secs)
 		if (s <= second_scales[i + 1].scale)
 			break;
 	}
-	s = s / second_scales[i].scale;
+	s /= second_scales[i].scale;
 
 	putdouble(buf, s, second_scales[i].base);
 	buf[6] = second_scales[i].ch;
