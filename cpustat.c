@@ -1067,13 +1067,13 @@ static void info_banner_dump(const double time_now)
 		get_tm(time_now, &tm);
 		strncpy(ptr, "  (", 3);
 		ptr += 3;
-		ptr += putint(ptr, 2, tm.tm_hour, false);
+		ptr += putint(ptr, 2, tm.tm_hour, true);
 		*ptr = ':';
 		ptr++;
-		ptr += putint(ptr, 2, tm.tm_min, false);
+		ptr += putint(ptr, 2, tm.tm_min, true);
 		*ptr = ':';
 		ptr++;
-		ptr += putint(ptr, 2, tm.tm_sec, false);
+		ptr += putint(ptr, 2, tm.tm_sec, true);
 		*ptr = ')';
 		ptr++;
 	}
@@ -1231,7 +1231,7 @@ static void samples_dump(
 			struct tm tm;
 
 			get_tm(sdl->whence, &tm);
-			fprintf(fp, ",%2.2d:%2.2d:%2.2d",
+			fprintf(fp, ",%02d:%02d:%02d",
 				tm.tm_hour, tm.tm_min, tm.tm_sec);
 		}
 
