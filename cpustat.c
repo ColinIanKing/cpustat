@@ -498,12 +498,12 @@ static int OPTIMIZE3 HOT putstr(char *dst, const int max, char *src)
  */
 static void cpustat_top_setup(void)
 {
-	initscr();
-	cbreak();
-	noecho();
-	nodelay(stdscr, 1);
-	keypad(stdscr, 1);
-	curs_set(0);
+	(void)initscr();
+	(void)cbreak();
+	(void)noecho();
+	(void)nodelay(stdscr, 1);
+	(void)keypad(stdscr, 1);
+	(void)curs_set(0);
 }
 
 /*
@@ -530,7 +530,7 @@ static void cpustat_top_winsize(const bool redo)
 	(void)redo;
 
 	cpustat_generic_winsize(true);
-	resizeterm(rows, cols);
+	(void)resizeterm(rows, cols);
 }
 
 /*
@@ -549,11 +549,11 @@ static void cpustat_noop(void)
 static void cpustat_top_endwin(void)
 {
 	df.df_winsize(true);
-	resizeterm(rows, cols);
-	refresh();
+	(void)resizeterm(rows, cols);
+	(void)refresh();
 	resized = false;
-	clear();
-	endwin();
+	(void)clear();
+	(void)endwin();
 }
 
 /*
@@ -562,7 +562,7 @@ static void cpustat_top_endwin(void)
  */
 static inline void cpustat_top_clear(void)
 {
-	clear();
+	(void)clear();
 }
 
 /*
@@ -571,7 +571,7 @@ static inline void cpustat_top_clear(void)
  */
 static inline void cpustat_top_refresh(void)
 {
-	refresh();
+	(void)refresh();
 }
 
 /*
@@ -592,7 +592,7 @@ static void cpustat_top_putstrnl(char * const str, const int n)
 	}
 
 	cury++;
-	addstr(str);
+	(void)addstr(str);
 }
 
 /*
@@ -607,7 +607,7 @@ static void cpustat_normal_putstrnl(char * const str, int n)
 	str[n] = '\n';
 	str[n + 1] = '\0';
 
-	fputs(str, stdout);
+	(void)fputs(str, stdout);
 }
 
 /*
@@ -616,7 +616,7 @@ static void cpustat_normal_putstrnl(char * const str, int n)
  */
 static void cpustat_normal_linebreak(void)
 {
-	putc('\n', stdout);
+	(void)putc('\n', stdout);
 }
 
 /* 'top' mode display functions */
@@ -724,7 +724,7 @@ static char *secs_to_str(const double secs)
 	}
 	s /= second_scales[i].scale;
 
-	putdouble(buf, s, second_scales[i].base);
+	(void)putdouble(buf, s, second_scales[i].base);
 	buf[6] = second_scales[i].ch;
 
 	return buf;
@@ -775,7 +775,7 @@ static double gettime_to_double(void)
 	struct timeval tv;
 
         if (UNLIKELY(gettimeofday(&tv, NULL) < 0)) {
-                fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
+                (void)fprintf(stderr, "gettimeofday failed: errno=%d (%s)\n",
                         errno, strerror(errno));
                 exit(EXIT_FAILURE);
         }
@@ -838,7 +838,7 @@ static char *get_pid_cmdline(const pid_t pid)
 	ptr = path;
 	ptr += putstr(ptr, 6, "/proc/");
 	ptr += putuint(ptr, pid);
-	putstr(ptr, 8, "/cmdline");
+	(void)putstr(ptr, 8, "/cmdline");
 	ptr = NULL;
 
 	if (UNLIKELY((fd = open(path, O_RDONLY)) < 0))
@@ -991,7 +991,7 @@ static void OPTIMIZE3 HOT sample_add(
 	 */
 	if (!found) {
 		if (UNLIKELY((sdl = malloc(sizeof(*sdl))) == NULL)) {
-			fprintf(stderr, "Cannot allocate sample delta list\n");
+			(void)fprintf(stderr, "Cannot allocate sample delta list\n");
 			exit(EXIT_FAILURE);
 		}
 		sdl->next = NULL;
@@ -1008,7 +1008,7 @@ static void OPTIMIZE3 HOT sample_add(
 
 	/* Now append the sdi onto the list */
 	if (UNLIKELY((sdi = malloc(sizeof(*sdi))) == NULL)) {
-		fprintf(stderr, "Cannot allocate sample delta item\n");
+		(void)fprintf(stderr, "Cannot allocate sample delta item\n");
 		exit(EXIT_FAILURE);
 	}
 	sdi->next = sdl->sample_delta_item_list;
@@ -1064,11 +1064,11 @@ static void info_banner_dump(const double time_now)
 
 	if (!hdrptr) {
 		hdrptr = str;
-		strncpy(hdrptr, "  %CPU   %USR   %SYS   ", sizeof(str));
+		(void)strncpy(hdrptr, "  %CPU   %USR   %SYS   ", sizeof(str));
 		hdrptr += 23;
 		for (i = 0; i < pid_max_digits - 5; i++, hdrptr++)
 			*hdrptr = ' ';
-		strncpy(hdrptr, "PID S  CPU    Time Task",
+		(void)strncpy(hdrptr, "PID S  CPU    Time Task",
 			sizeof(str) - (3 + pid_max_digits));
 		hdrptr += 23;
 	}
@@ -1078,7 +1078,7 @@ static void info_banner_dump(const double time_now)
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		strncpy(ptr, "  (", 3);
+		(void)strncpy(ptr, "  (", 3);
 		ptr += 3;
 		ptr += putint(ptr, 2, tm.tm_hour, true);
 		*ptr = ':';
@@ -1184,7 +1184,7 @@ static void samples_dump(
 
 	if (UNLIKELY((sorted_cpu_infos =
 	     calloc(cpu_info_list_length, sizeof(*sorted_cpu_infos))) == NULL)) {
-		fprintf(stderr,
+		(void)fprintf(stderr,
 			"Cannot allocate buffer for sorting cpu_infos\n");
 		exit(EXIT_FAILURE);
 	}
@@ -1201,7 +1201,7 @@ static void samples_dump(
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
-		printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
+		(void)printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
 			samples, duration);
 		info_banner_dump(time_now);
 		for (i = 0; i < n; i++) {
@@ -1211,7 +1211,7 @@ static void samples_dump(
 				&cpu_u_total, &cpu_s_total);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
-		putchar('\n');
+		(void)putchar('\n');
 	}
 
 	if (!filename) {
@@ -1220,31 +1220,31 @@ static void samples_dump(
 	}
 
 	if ((fp = fopen(filename, "w")) == NULL) {
-		fprintf(stderr, "Cannot write to file %s\n", filename);
+		(void)fprintf(stderr, "Cannot write to file %s\n", filename);
 		free(sorted_cpu_infos);
 		return;
 	}
-	fprintf(fp, "Task:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
+	(void)fprintf(fp, "Task:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
 	for (i = 0; i < n; i++)
-		fprintf(fp, ",%s (%d)", sorted_cpu_infos[i]->comm,
+		(void)fprintf(fp, ",%s (%d)", sorted_cpu_infos[i]->comm,
 			sorted_cpu_infos[i]->pid);
-	fprintf(fp, "\n");
+	(void)fprintf(fp, "\n");
 
-	fprintf(fp, "Ticks:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
+	(void)fprintf(fp, "Ticks:%s", (opt_flags & OPT_TIMESTAMP) ? "," : "");
 	for (i = 0; i < n; i++)
-		fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
-	fprintf(fp, "\n");
+		(void)fprintf(fp, ",%" PRIu64, sorted_cpu_infos[i]->total);
+	(void)fprintf(fp, "\n");
 
 	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
 		if (first_time < 0)
 			first_time = sdl->whence;
 
-		fprintf(fp, "%f", duration_round(sdl->whence - first_time));
+		(void)fprintf(fp, "%f", duration_round(sdl->whence - first_time));
 		if (opt_flags & OPT_TIMESTAMP) {
 			struct tm tm;
 
 			get_tm(sdl->whence, &tm);
-			fprintf(fp, ",%02d:%02d:%02d",
+			(void)fprintf(fp, ",%02d:%02d:%02d",
 				tm.tm_hour, tm.tm_min, tm.tm_sec);
 		}
 
@@ -1255,14 +1255,14 @@ static void samples_dump(
 			if (sdi) {
 				double tmp_duration =
 					duration_round(sdi->time_delta);
-				fprintf(fp,",%f",
+				(void)fprintf(fp,",%f",
 					(tmp_duration < 0.01) ? 0.0 :
 					100.0 * (double)sdi->delta /
 					(duration * (double)nr_ticks));
 			} else
-				fprintf(fp,", ");
+				(void)fprintf(fp,", ");
 		}
-		fprintf(fp, "\n");
+		(void)fprintf(fp, "\n");
 	}
 
 	free(sorted_cpu_infos);
@@ -1299,13 +1299,13 @@ static void cpu_distribution(
 	uint64_t utotal[cpu_max], stotal[cpu_max];
 
 	if (!total_ticks) {
-		printf("Cannot calculate distribution of CPU utilisation, "
+		(void)printf("Cannot calculate distribution of CPU utilisation, "
 			"(zero clock tick)\n");
 		return;
 	}
 
-	memset(utotal, 0, sizeof(utotal));
-	memset(stotal, 0, sizeof(stotal));
+	(void)memset(utotal, 0, sizeof(utotal));
+	(void)memset(stotal, 0, sizeof(stotal));
 
 	for (cpu_info = cpu_info_list; cpu_info;
 	     cpu_info = cpu_info->list_next) {
@@ -1313,10 +1313,10 @@ static void cpu_distribution(
 		utotal[cpu] += cpu_info->utotal;
 		stotal[cpu] += cpu_info->stotal;
 	}
-	printf("Distribution of CPU utilisation (per CPU):\n");
-	printf(" CPU#   USR%%   SYS%%\n");
+	(void)printf("Distribution of CPU utilisation (per CPU):\n");
+	(void)printf(" CPU#   USR%%   SYS%%\n");
 	for (i = 0; i < cpu_max; i++)
-		printf("%5d %6.2f %6.2f\n",
+		(void)printf("%5d %6.2f %6.2f\n",
 			i,
 			100.0 * (double)utotal[i] / (double)total_ticks,
 			100.0 * (double)stotal[i] / (double)total_ticks);
@@ -1334,7 +1334,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 	double min = DBL_MAX, max = -DBL_MAX, division, prev;
 	const double scale = 100.0 / (double)nr_ticks;
 
-	memset(bucket, 0, sizeof(bucket));
+	(void)memset(bucket, 0, sizeof(bucket));
 
 	for (sdl = sample_delta_list_head; sdl; sdl = sdl->next) {
 		sample_delta_item_t *sdi;
@@ -1350,12 +1350,12 @@ static void samples_distribution(const uint64_t nr_ticks)
 	}
 
 	if (valid <= 1) {
-		printf("Too few samples, cannot compute distribution\n");
+		(void)printf("Too few samples, cannot compute distribution\n");
 		return;
 	}
 
 	if (max - min < 0.01) {
-		printf("Range is too small, cannot compute distribution\n");
+		(void)printf("Range is too small, cannot compute distribution\n");
 		return;
 	}
 	division = ((max * 1.000001) - min) / (MAX_DIVISIONS);
@@ -1373,10 +1373,10 @@ static void samples_distribution(const uint64_t nr_ticks)
 				max_bucket = bucket[v];
 		}
 	}
-	printf("Distribution of CPU utilisation (per Task):\n");
-	printf("%% CPU Utilisation   Count   (%%)\n");
+	(void)printf("Distribution of CPU utilisation (per Task):\n");
+	(void)printf("%% CPU Utilisation   Count   (%%)\n");
 	for (prev = min, i = 0; i < MAX_DIVISIONS; i++, prev += division) {
-		printf("%6.2f - %6.2f  %8u %6.2f\n",
+		(void)printf("%6.2f - %6.2f  %8u %6.2f\n",
 			prev, prev + division - 0.001,
 			bucket[i],
 			100.0 * (double)bucket[i] / (double)total);
@@ -1403,16 +1403,16 @@ static cpu_info_t OPTIMIZE3 HOT *cpu_info_find(
 	}
 
 	if (UNLIKELY((info = malloc(sizeof(*info))) == NULL)) {
-		fprintf(stderr, "Cannot allocate CPU info\n");
+		(void)fprintf(stderr, "Cannot allocate CPU info\n");
 		exit(EXIT_FAILURE);
 	}
-	memcpy(info, new_info, sizeof(*info));
+	(void)memcpy(info, new_info, sizeof(*info));
 
 	if ((new_info->cmdline == NULL) || (opt_flags & OPT_CMD_COMM)) {
 		info->cmdline = info->comm;
 	} else {
 		if (UNLIKELY((info->cmdline = strdup(new_info->cmdline)) == NULL)) {
-			fprintf(stderr, "Cannot allocate CPU cmdline field info\n");
+			(void)fprintf(stderr, "Cannot allocate CPU cmdline field info\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -1547,7 +1547,7 @@ static void OPTIMIZE3 HOT cpu_stat_add(
 		cpu_stat_free_list = cs_new->next;
 	} else {
 		if (UNLIKELY((cs_new = malloc(sizeof(*cs_new))) == NULL)) {
-			fprintf(stderr,
+			(void)fprintf(stderr,
 				"Out of memory allocating a cpu stat\n");
 			exit(1);
 		}
@@ -1695,7 +1695,7 @@ static int get_proc_stat(proc_stat_t * const proc_stat)
 	FILE *fp;
 	char buffer[4096];
 
-	memset(proc_stat, 0, sizeof(*proc_stat));
+	(void)memset(proc_stat, 0, sizeof(*proc_stat));
 
 	fp = fopen("/proc/stat", "r");
 	if (UNLIKELY(!fp))
@@ -1787,7 +1787,7 @@ static void get_cpustats(
 		my_pid = getpid();
 
 	if (UNLIKELY((dir = opendir("/proc")) == NULL)) {
-		fprintf(stderr, "Cannot read directory /proc\n");
+		(void)fprintf(stderr, "Cannot read directory /proc\n");
 		return;
 	}
 	while ((entry = readdir(dir)) != NULL) {
@@ -1806,7 +1806,7 @@ static void get_cpustats(
 		fnptr = filename;
 		fnptr += putstr(fnptr, 6, "/proc/");
 		fnptr += putstr(fnptr, PATH_MAX - 6, entry->d_name);
-		putstr(fnptr, 5, "/stat");
+		(void)putstr(fnptr, 5, "/stat");
 		if ((fd = open(filename, O_RDONLY)) < 0)
 			continue;
 
@@ -1913,7 +1913,7 @@ static double cpu_freq_average(const uint32_t max_cpus)
 		fnptr = filename;
 		fnptr += putstr(fnptr, 28, "/sys/devices/system/cpu/cpu");
 		fnptr += putuint(fnptr, i);
-		putstr(fnptr, 25, "/cpufreq/scaling_cur_freq");
+		(void)putstr(fnptr, 25, "/cpufreq/scaling_cur_freq");
 
 		if (LIKELY((fd = open(filename, O_RDONLY)) > -1)) {
 			char buffer[64];
@@ -2010,7 +2010,7 @@ static char *cpus_online(void)
 		} else
 			goto unknown;
 	}
-	snprintf(buffer, sizeof(buffer), "%" PRId32, cpus);
+	(void)snprintf(buffer, sizeof(buffer), "%" PRId32, cpus);
 
 	return buffer;
 unknown:
@@ -2085,7 +2085,7 @@ static inline void load_online_dump(const uint32_t max_cpus)
  */
 static void show_usage(void)
 {
-	printf(APP_NAME ", version " VERSION "\n\n"
+	(void)printf(APP_NAME ", version " VERSION "\n\n"
 		"Usage: " APP_NAME " [options] [duration] [count]\n"
 		" -h help\n"
 		" -a calculate CPU utilisation based on all the CPU ticks\n"
@@ -2162,11 +2162,11 @@ int main(int argc, char **argv)
 			errno = 0;
 			n_lines = (int32_t)strtol(optarg, NULL, 10);
 			if (errno) {
-				fprintf(stderr, "Invalid value for -n option\n");
+				(void)fprintf(stderr, "Invalid value for -n option\n");
 				exit(EXIT_FAILURE);
 			}
 			if (n_lines < 1) {
-				fprintf(stderr,
+				(void)fprintf(stderr,
 					"-n option must be greater than 0\n");
 				exit(EXIT_FAILURE);
 			}
@@ -2175,7 +2175,7 @@ int main(int argc, char **argv)
 			errno = 0;
 			opt_pid = strtol(optarg, NULL, 10);
 			if (errno) {
-				fprintf(stderr,
+				(void)fprintf(stderr,
 					"Invalid value for -o option\n");
 				exit(EXIT_FAILURE);
 			}
@@ -2190,7 +2190,7 @@ int main(int argc, char **argv)
 		case 't':
 			opt_threshold = atof(optarg);
 			if (opt_threshold < 0.0) {
-				fprintf(stderr,
+				(void)fprintf(stderr,
 					"-t threshold must be 0 or more.\n");
 				exit(EXIT_FAILURE);
 			}
@@ -2218,13 +2218,13 @@ int main(int argc, char **argv)
 	}
 
 	if (count_bits(opt_flags & OPT_CMD_ALL) > 1) {
-		fprintf(stderr, "Cannot have -c, -l, -s at same time.\n");
+		(void)fprintf(stderr, "Cannot have -c, -l, -s at same time.\n");
 		exit(EXIT_FAILURE);
 	}
 	if (optind < argc) {
 		duration_secs = atof(argv[optind++]);
 		if (duration_secs < 0.333) {
-			fprintf(stderr, "Duration must 0.333 or more\n");
+			(void)fprintf(stderr, "Duration must 0.333 or more\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -2233,11 +2233,11 @@ int main(int argc, char **argv)
 		errno = 0;
 		count = (int64_t)strtoll(argv[optind++], NULL, 10);
 		if (errno) {
-			fprintf(stderr, "Invalid value for count\n");
+			(void)fprintf(stderr, "Invalid value for count\n");
 			exit(EXIT_FAILURE);
 		}
 		if (count < 1) {
-			fprintf(stderr, "Count must be greater than 0\n");
+			(void)fprintf(stderr, "Count must be greater than 0\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -2245,22 +2245,22 @@ int main(int argc, char **argv)
 
 	pid_max_digits = get_pid_max_digits();
 
-	memset(&new_action, 0, sizeof(new_action));
+	(void)memset(&new_action, 0, sizeof(new_action));
 	for (i = 0; signals[i] != -1; i++) {
 		new_action.sa_handler = handle_sig;
-		sigemptyset(&new_action.sa_mask);
+		(void)sigemptyset(&new_action.sa_mask);
 		new_action.sa_flags = 0;
 
 		if (sigaction(signals[i], &new_action, NULL) < 0) {
-			fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+			(void)fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
 				errno, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 	}
-	memset(&new_action, 0, sizeof(new_action));
+	(void)memset(&new_action, 0, sizeof(new_action));
 	new_action.sa_handler = handle_sigwinch;
 	if (sigaction(SIGWINCH, &new_action , NULL) < 0) {
-		fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
+		(void)fprintf(stderr, "sigaction failed: errno=%d (%s)\n",
 			errno, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
@@ -2269,7 +2269,7 @@ int main(int argc, char **argv)
 	cpu_stats_new = calloc(TABLE_SIZE, sizeof(*cpu_stats_new));
 
 	if (UNLIKELY(cpu_stats_old == NULL || cpu_stats_new == NULL)) {
-		fprintf(stderr, "Cannot allocate CPU statistics tables\n");
+		(void)fprintf(stderr, "Cannot allocate CPU statistics tables\n");
 		exit(EXIT_FAILURE);
 	}
 	proc_stat_old = &proc_stats[0];
@@ -2321,7 +2321,7 @@ retry:
 						goto retry;
 				}
 			} else {
-				fprintf(stderr,
+				(void)fprintf(stderr,
 					"select failed: errno=%d (%s)\n",
 					errno, strerror(errno));
 				break;
