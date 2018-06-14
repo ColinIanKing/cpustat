@@ -15,4 +15,3 @@ Description: periodic cpu utilization statistics
  the end of a run.  cpustat has been designed and optimized to use a minimal
  amount of CPU cycles to monitor a system hence it is a light weight
  alternative to traditional process monitoring tools such as top.
-
