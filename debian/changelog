@@ -1,3 +1,19 @@
+cpustat (0.02.05-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * debian/copyright: use secure URI
+  * debian/control: remove empty line at end of file
+  * debian/compat: set to 11
+  * debian/control: set debhelper version >= 11
+  * voidify function returns
+  * constify cpu_freq_scale
+  * Minor code clean ups
+  * Add more constifcations to functions and arrays
+  * Fix the time scaling, use base 60 where necessary
+  * Fix leading zeros on time data
+
+ -- Colin King <colin.king@canonical.com>  Thu, 14 Jun 2018 18:46:12 +0100
+
 cpustat (0.02.04-1) unstable; urgency=medium
 
   * Makefile: bump version
@@ -419,6 +435,6 @@ cpustat (0.01.01) precise; urgency=low
 
 cpustat (0.01.00) precise; urgency=low
 
-  * Initial version 
+  * Initial version
 
  -- Colin King <colin.king@canonical.com>  Wed, 21 Dec 2011 01:15:00 +0000
