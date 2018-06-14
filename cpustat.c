@@ -187,8 +187,9 @@ typedef struct {
 /* scaling factor */
 typedef struct {
 	const char ch;			/* Scaling suffix */
+	const uint32_t base;		/* Base of part following . point */
 	const uint64_t scale;		/* Amount to scale by */
-} scale_t;
+} time_scale_t;
 
 typedef struct {
 	uint32_t hash;			/* Hash of /proc/stat field tag */
@@ -206,7 +207,7 @@ typedef struct {
 	void (*df_linebreak)(void);
 } display_funcs_t;
 
-/* CPU frequency scale suffixes */
+/* CPU frequency  scale suffixes */
 static cpu_freq_scale_t cpu_freq_scale[] = {
 	{ 1e1,  1e0,  "Hz" },
 	{ 1e4,  1e3,  "KHz" },
@@ -217,14 +218,14 @@ static cpu_freq_scale_t cpu_freq_scale[] = {
 };
 
 /* seconds scale suffixes, secs, mins, hours, etc */
-static const scale_t second_scales[] = {
-	{ 's',	1 },
-	{ 'm',	60 },
-	{ 'h',  3600 },
-	{ 'd',  24 * 3600 },
-	{ 'w',  7 * 24 * 3600 },
-	{ 'y',  365 * 24 * 3600 },
-	{ ' ',  INT64_MAX },
+static const time_scale_t second_scales[] = {
+	{ 's',	100, 1 },
+	{ 'm',	 60, 60 },
+	{ 'h',   60, 3600 },
+	{ 'd',  100, 24 * 3600 },
+	{ 'w',  100, 7 * 24 * 3600 },
+	{ 'y',  100, 365 * 24 * 3600 },
+	{ ' ',  100,  INT64_MAX },
 };
 
 static const proc_stat_fields_t fields[] = {
@@ -425,13 +426,16 @@ static int OPTIMIZE3 HOT putuint(char *str, unsigned int v)
  *  putdouble()
  *	put a double in %6.2 with trailing space
  */
-static int OPTIMIZE3 HOT putdouble(char *str, double v)
+static int OPTIMIZE3 HOT putdouble(
+	char *str,
+	const double val,
+	const int base)
 {
-	v += 0.005;	/* Round up */
+	double v = val + 0.005; /* Round up */
 
 	(void)putint(str, 3, (int)v, false);
 	str[3] = '.';
-	(void)putint(str + 4, 2, v * 100.0 - (double)((int)v * 100), true);
+	(void)putint(str + 4, 2, v * (double)base - (double)((int)v * base), true);
 	str[2] = (str[2] == ' ') ? '0' : str[2];
 	str[6] = ' ';
 	str[7] = '\0';
@@ -706,12 +710,16 @@ static char *secs_to_str(const double secs)
 {
 	static char buf[16];
 	size_t i;
+	double s = secs;
+
 
 	for (i = 0; i < 5; i++) {
-		if (secs <= second_scales[i + 1].scale)
+		if (s <= second_scales[i + 1].scale)
 			break;
 	}
-	putdouble(buf, secs / second_scales[i].scale);
+	s = s / second_scales[i].scale;
+
+	putdouble(buf, s, second_scales[i].base);
 	buf[6] = second_scales[i].ch;
 
 	return buf;
@@ -1104,11 +1112,11 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	ptr += putdouble(ptr, cpu_u_usage + cpu_s_usage);
+	ptr += putdouble(ptr, cpu_u_usage + cpu_s_usage, 100);
 	*(ptr++) = ' ';
-	ptr += putdouble(ptr, cpu_u_usage);
+	ptr += putdouble(ptr, cpu_u_usage, 100);
 	*(ptr++) = ' ';
-	ptr += putdouble(ptr, cpu_s_usage);
+	ptr += putdouble(ptr, cpu_s_usage, 100);
 	*(ptr++) = ' ';
 	ptr += putint(ptr, pid_max_digits, info->pid, false);
 	*(ptr++) = ' ';
@@ -1139,11 +1147,11 @@ static inline void info_total_dump(
 	if (UNLIKELY(opt_flags & OPT_TOTAL)) {
 		char buffer[256], *ptr = buffer;
 
-		ptr += putdouble(ptr, u_total + s_total);
+		ptr += putdouble(ptr, u_total + s_total, 100);
 		*(ptr++) = ' ';
-		ptr += putdouble(ptr, u_total);
+		ptr += putdouble(ptr, u_total, 100);
 		*(ptr++) = ' ';
-		ptr += putdouble(ptr, s_total);
+		ptr += putdouble(ptr, s_total, 100);
 		*(ptr++) = ' ';
 		ptr += putstr(ptr, 5, "Total");
 		df.df_putstrnl(buffer, ptr - buffer);
