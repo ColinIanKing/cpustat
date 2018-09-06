@@ -54,7 +54,7 @@ dist:
 	rm -rf cpustat-$(VERSION)
 	mkdir cpustat-$(VERSION)
 	cp -rp README Makefile cpustat.c cpustat.8 COPYING mascot \
-		snap cpustat-$(VERSION)
+		.travis.yml snap cpustat-$(VERSION)
 	tar -Jcf cpustat-$(VERSION).tar.xz cpustat-$(VERSION)
 	rm -rf cpustat-$(VERSION)
 
