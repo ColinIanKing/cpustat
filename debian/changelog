@@ -1,3 +1,17 @@
+cpustat (0.02.06-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Makefile: add .travis.yml to make dist rule
+  * debian/watch: change .gz to .xz
+  * Makefile: remove .xz tarball on make dist rule
+  * Makefile: generate .xz tarball and not .gz as it compresses better
+  * Makefile: rename snapcraft to snap in make dist rule
+  * Don't show CPU frequency if it cannot be read
+  * Rename snapcraft directory to snap
+  * Add travis yaml file
+
+ -- Colin King <colin.king@canonical.com>  Thu, 6 Sep 2018 08:42:45 +0100
+
 cpustat (0.02.05-1) unstable; urgency=medium
 
   * Makefile: bump version
