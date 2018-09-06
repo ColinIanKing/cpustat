@@ -55,7 +55,7 @@ dist:
 	mkdir cpustat-$(VERSION)
 	cp -rp README Makefile cpustat.c cpustat.8 COPYING mascot \
 		snap cpustat-$(VERSION)
-	tar -zcf cpustat-$(VERSION).tar.gz cpustat-$(VERSION)
+	tar -Jcf cpustat-$(VERSION).tar.xz cpustat-$(VERSION)
 	rm -rf cpustat-$(VERSION)
 
 clean:
