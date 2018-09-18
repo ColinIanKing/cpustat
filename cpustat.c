@@ -116,16 +116,16 @@
 typedef struct cpu_info_t {
 	struct cpu_info_t *hash_next;	/* Next cpu info in hash */
 	struct cpu_info_t *list_next;	/* Next cpu info in list */
-	pid_t		pid;		/* Process ID */
-	char 		comm[17];	/* Name of process/kernel task */
-	char		state;		/* Run state */
-	bool		kernel_thread;	/* true if a kernel thread */
+	char		*cmdline;	/* Full name of process cmdline */
 	uint64_t	utotal;		/* Usr Space total CPU ticks */
 	uint64_t	stotal;		/* Sys Space total CPU ticks */
 	uint64_t	total;		/* Total number of CPU ticks */
 	uint64_t	ticks;		/* Total life time in CPU ticks */
-	char		*cmdline;	/* Full name of process cmdline */
+	pid_t		pid;		/* Process ID */
 	int		processor;	/* Last CPU run on */
+	bool		kernel_thread;	/* true if a kernel thread */
+	char		state;		/* Run state */
+	char 		comm[17];	/* Name of process/kernel task */
 } cpu_info_t;
 
 /* system wide CPU stats */
@@ -174,8 +174,8 @@ typedef struct sample_delta_list {
 typedef struct pid_info {
 	struct pid_info *next;		/* next pid_info in list */
 	struct timespec st_ctim;	/* time of process creation */
-	pid_t	pid;			/* process ID */
 	char	*cmdline;		/* process command line */
+	pid_t	pid;			/* process ID */
 } pid_info_t;
 
 typedef struct {
