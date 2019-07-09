@@ -1079,7 +1079,7 @@ static void info_banner_dump(const double time_now)
 		struct tm tm;
 
 		get_tm(time_now, &tm);
-		(void)strncpy(ptr, "  (", 3);
+		(void)strncpy(ptr, "  (", 4);
 		ptr += 3;
 		ptr += putint(ptr, 2, tm.tm_hour, true);
 		*ptr = ':';
