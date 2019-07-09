@@ -1060,9 +1060,10 @@ static void info_banner_dump(const double time_now)
 	static char str[256];
 	static char *hdrptr;
 	char *ptr;
-	int i;
 
 	if (!hdrptr) {
+		int i;
+
 		hdrptr = str;
 		(void)strncpy(hdrptr, "  %CPU   %USR   %SYS   ", sizeof(str));
 		hdrptr += 23;
