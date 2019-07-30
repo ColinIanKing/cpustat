@@ -1380,7 +1380,7 @@ static void samples_distribution(const uint64_t nr_ticks)
 		(void)printf("%6.2f - %6.2f  %8u %6.2f\n",
 			prev, prev + division - 0.001,
 			bucket[i],
-			100.0 * (double)bucket[i] / (double)total);
+			total ?  100.0 * (double)bucket[i] / (double)total : 0.0);
 	}
 	putc('\n', stdout);
 }
