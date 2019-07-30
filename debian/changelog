@@ -1,3 +1,11 @@
+cpustat (0.02.09-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Makefile: remove -g flag
+  * Avoid division by zero if total is zero
+
+ -- Colin King <colin.king@canonical.com>  Tue, 30 Jul 2019 13:18:23 +0100
+
 cpustat (0.02.08-1) unstable; urgency=medium
 
   * Makefile: bump version
