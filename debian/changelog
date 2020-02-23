@@ -1,3 +1,13 @@
+cpustat (0.02.10-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Makefile: add bash-completion to make dist rule
+  * Add bash completion script
+  * Update copyright to 2020
+  * snapcraft: add automatic versioning
+
+ -- Colin King <colin.king@canonical.com>  Sun, 23 Feb 2020 23:25:22 +0000
+
 cpustat (0.02.09-1) unstable; urgency=medium
 
   * Makefile: bump version
