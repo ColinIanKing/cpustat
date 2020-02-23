@@ -2227,7 +2227,7 @@ int main(int argc, char **argv)
 	if (optind < argc) {
 		duration_secs = atof(argv[optind++]);
 		if (duration_secs < 0.333) {
-			(void)fprintf(stderr, "Duration must 0.333 or more\n");
+			(void)fprintf(stderr, "Delay duration must 0.333 or more\n");
 			exit(EXIT_FAILURE);
 		}
 	}

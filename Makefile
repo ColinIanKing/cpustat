@@ -41,6 +41,7 @@ endif
 #
 BINDIR=/usr/sbin
 MANDIR=/usr/share/man/man8
+BASHDIR=/usr/share/bash-completion/completions
 
 cpustat: cpustat.o Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS)  $< -lm -lncurses -o $@ $(LDFLAGS)
@@ -68,3 +69,5 @@ install: cpustat cpustat.8.gz
 	cp cpustat ${DESTDIR}${BINDIR}
 	mkdir -p ${DESTDIR}${MANDIR}
 	cp cpustat.8.gz ${DESTDIR}${MANDIR}
+	mkdir -p ${DESTDIR}${BASHDIR}
+	cp bash-completion/cpustat ${DESTDIR}${BASHDIR}
