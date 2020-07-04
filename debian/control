@@ -1,4 +1,5 @@
 Source: cpustat
+Rules-Requires-Root: no
 Section: admin
 Priority: optional
 Maintainer: Colin King <colin.king@canonical.com>
