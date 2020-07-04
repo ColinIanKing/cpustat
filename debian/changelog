@@ -1,3 +1,12 @@
+cpustat (0.02.11-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Debian/control: add Rules-Requires-Root: no
+  * debian/control: update to compat 13
+  * cpustat: zero ws struct to clear static analysis warnings
+
+ -- Colin King <colin.king@canonical.com>  Sat, 4 Jul 2020 10:33:32 +0100
+
 cpustat (0.02.10-1) unstable; urgency=medium
 
   * Makefile: bump version
