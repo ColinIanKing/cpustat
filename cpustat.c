@@ -315,6 +315,11 @@ static const int signals[] = {
 	-1,
 };
 
+static inline int intmax(const int a, const int b)
+{
+	return (a > b) ? a : b;
+}
+
 /*
  *  get_pid_max_digits()
  *	determine (or guess) maximum digits of pids
@@ -428,23 +433,26 @@ static int OPTIMIZE3 HOT putuint(char *const str, unsigned int v)
 
 /*
  *  putdouble()
- *	put a double in %6.2 with trailing space
+ *	put a double in %n.2 with trailing space, where n = width
  */
 static int OPTIMIZE3 HOT putdouble(
 	char *str,
 	const double val,
-	const int base)
+	const int base,
+	const int width)
 {
 	const double v = val + 0.005; /* Round up */
+	int n = width - 3;
 
-	(void)putint(str, 3, (int)v, false);
-	str[3] = '.';
-	(void)putint(str + 4, 2, v * (double)base - (double)((int)v * base), true);
-	str[2] = (str[2] == ' ') ? '0' : str[2];
-	str[6] = ' ';
-	str[7] = '\0';
+	if (n < 1)
+		n = 1;
 
-	return 6;
+	(void)putint(str, n, (int)v, false);
+	str[n] = '.';
+	(void)putint(str + n + 1, 2, v * (double)base - (double)((int)v * base), true);
+	str[width + 1] = '\0';
+
+	return width;
 }
 
 /*
@@ -725,7 +733,7 @@ static char *secs_to_str(const double secs)
 	}
 	s /= second_scales[i].scale;
 
-	(void)putdouble(buf, s, second_scales[i].base);
+	(void)putdouble(buf, s, second_scales[i].base, 6);
 	buf[6] = second_scales[i].ch;
 
 	return buf;
@@ -1056,25 +1064,33 @@ static int info_compare_total(const void *const item1, const void *const item2)
  *  info_banner_dump()
  *	dump banner for per_info stats
  */
-static void info_banner_dump(const double time_now)
+static void info_banner_dump(
+	const double time_now,
+	int umax_w,
+	int smax_w,
+	int usmax_w)
 {
 	static char str[256];
-	static char *hdrptr;
-	char *ptr;
+	char *ptr = str;
+	int i;
+	char tmp[256];
+	size_t n, sz = sizeof(str);
 
-	if (!hdrptr) {
-		int i;
+	snprintf(tmp, sizeof(tmp), "%*s %*s %*s ",
+		usmax_w, "%CPU",
+		umax_w, "%USR",
+		smax_w, "%SYS");
+	n = strlen(tmp);
 
-		hdrptr = str;
-		(void)strncpy(hdrptr, "  %CPU   %USR   %SYS   ", sizeof(str));
-		hdrptr += 23;
-		for (i = 0; i < pid_max_digits - 5; i++, hdrptr++)
-			*hdrptr = ' ';
-		(void)strncpy(hdrptr, "PID S  CPU    Time Task",
-			sizeof(str) - (3 + pid_max_digits));
-		hdrptr += 23;
-	}
-	ptr = hdrptr;
+	(void)strncpy(ptr, tmp, sizeof(str));
+	ptr += n;
+	sz -= n;
+	for (i = 0; i < pid_max_digits - 3; i++, ptr++)
+		*ptr = ' ';
+	sz -= i;
+	(void)strncpy(ptr, "PID S  CPU    Time Task", sz);
+	ptr += 23;
+	sz -= 23;
 
 	if (UNLIKELY(opt_flags & OPT_TIMESTAMP)) {
 		struct tm tm;
@@ -1106,7 +1122,10 @@ static void info_dump(
 	const uint64_t total_ticks,
 	const cpu_info_t *info,
 	double *const u_total,
-	double *const s_total)
+	double *const s_total,
+	int umax_w,
+	int smax_w,
+	int usmax_w)
 {
 	char buffer[512], *ptr = buffer;
 
@@ -1119,11 +1138,11 @@ static void info_dump(
 	*u_total += cpu_u_usage;
 	*s_total += cpu_s_usage;
 
-	ptr += putdouble(ptr, cpu_u_usage + cpu_s_usage, 100);
+	ptr += putdouble(ptr, cpu_u_usage + cpu_s_usage, 100, usmax_w);
 	*(ptr++) = ' ';
-	ptr += putdouble(ptr, cpu_u_usage, 100);
+	ptr += putdouble(ptr, cpu_u_usage, 100, umax_w);
 	*(ptr++) = ' ';
-	ptr += putdouble(ptr, cpu_s_usage, 100);
+	ptr += putdouble(ptr, cpu_s_usage, 100, smax_w);
 	*(ptr++) = ' ';
 	ptr += putint(ptr, pid_max_digits, info->pid, false);
 	*(ptr++) = ' ';
@@ -1154,15 +1173,32 @@ static inline void info_total_dump(
 	if (UNLIKELY(opt_flags & OPT_TOTAL)) {
 		char buffer[256], *ptr = buffer;
 
-		ptr += putdouble(ptr, u_total + s_total, 100);
+		ptr += putdouble(ptr, u_total + s_total, 100, 6);
 		*(ptr++) = ' ';
-		ptr += putdouble(ptr, u_total, 100);
+		ptr += putdouble(ptr, u_total, 100, 6);
 		*(ptr++) = ' ';
-		ptr += putdouble(ptr, s_total, 100);
+		ptr += putdouble(ptr, s_total, 100, 6);
 		*(ptr++) = ' ';
 		ptr += putstr(ptr, 5, "Total");
 		df.df_putstrnl(buffer, ptr - buffer);
 	}
+}
+
+/*
+ *  n_digits
+ *	compute width of a floating point value
+ * 	that has 2 decimals of precision. Minimum is
+ *	with is 6 chars (e.g. "  0.00" to "100.00").
+ *	value is divided by ticks
+ */
+static int digits_w(double value, uint64_t ticks)
+{
+	int w;
+
+	value = (ticks == 0) ? 0.0 : value / ticks;
+	w = value < 1.0 ? 1 : (int)log10(value);
+	w += 4;
+	return w < 6 ? 6 : w;
 }
 
 /*
@@ -1183,6 +1219,8 @@ static void samples_dump(
 	size_t i = 0, n;
 	FILE *fp;
 	double first_time = -1.0;
+	double umax = 0.0, smax = 0.0, usmax = 0.0;
+	static int umax_w, smax_w, usmax_w;
 
 	if (UNLIKELY((sorted_cpu_infos =
 	     calloc(cpu_info_list_length, sizeof(*sorted_cpu_infos))) == NULL)) {
@@ -1200,17 +1238,34 @@ static void samples_dump(
 
 	qsort(sorted_cpu_infos, n, sizeof(cpu_info_t *), info_compare_total);
 
+	for (i = 0; i < n; i++) {
+		const double utotal = (double)sorted_cpu_infos[i]->utotal;
+		const double stotal = (double)sorted_cpu_infos[i]->stotal;
+		const double ustotal = utotal + stotal;
+
+		if (utotal > umax)
+			umax = utotal;
+		if (stotal > smax)
+			umax = stotal;
+		if (ustotal > usmax)
+			usmax = ustotal;
+	}
+	umax_w = intmax(digits_w(umax, total_ticks), umax_w);
+	smax_w = intmax(digits_w(smax, total_ticks), smax_w);
+	usmax_w = intmax(digits_w(usmax, total_ticks), usmax_w);
+
 	if (opt_flags & OPT_GRAND_TOTAL) {
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
 
 		(void)printf("Grand Total (from %" PRIu32 " samples, %.1f seconds):\n",
 			samples, duration);
-		info_banner_dump(time_now);
+		info_banner_dump(time_now, umax_w, smax_w, usmax_w);
 		for (i = 0; i < n; i++) {
 			info_dump(sorted_cpu_infos[i]->utotal,
 				sorted_cpu_infos[i]->stotal,
 				total_ticks, sorted_cpu_infos[i],
-				&cpu_u_total, &cpu_s_total);
+				&cpu_u_total, &cpu_s_total,
+				umax_w, smax_w, usmax_w);
 		}
 		info_total_dump(cpu_u_total, cpu_s_total);
 		(void)putchar('\n');
@@ -1664,8 +1719,27 @@ static void cpu_stat_diff(
 	if (!(opt_flags & OPT_QUIET)) {
 		int32_t j = 0;
 		double cpu_u_total = 0.0, cpu_s_total = 0.0;
+		cpu_stat_t *s;
+		double umax = 0.0, smax = 0.0, usmax = 0.0;
+		static int umax_w, smax_w, usmax_w;
 
-		info_banner_dump(time_now);
+		for (s = sorted; s; s = s->next) {
+			const double utotal = (double)s->udelta;
+			const double stotal = (double)s->sdelta;
+			const double ustotal = utotal + stotal;
+
+			if (utotal > umax)
+				umax = utotal;
+			if (stotal > smax)
+				smax = stotal;
+			if (ustotal > usmax)
+				usmax = ustotal;
+		}
+		umax_w = intmax(digits_w(100.0 * umax, nr_ticks), umax_w);
+		smax_w = intmax(digits_w(100.0 * smax, nr_ticks), smax_w);
+		usmax_w = intmax(digits_w(100.0 * usmax, nr_ticks), usmax_w);
+
+		info_banner_dump(time_now, umax_w, smax_w, usmax_w);
 		while (sorted) {
 			double cpu_u_usage =
 				100.0 * (double)sorted->udelta /
@@ -1680,7 +1754,8 @@ static void cpu_stat_diff(
 				if (cpu_t_usage > 0.0)
 					info_dump(sorted->udelta, sorted->sdelta,
 						nr_ticks, sorted->info,
-						&cpu_u_total, &cpu_s_total);
+						&cpu_u_total, &cpu_s_total,
+						umax_w, smax_w, usmax_w);
 			}
 			sorted = sorted->sorted_usage_next;
 		}
