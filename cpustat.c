@@ -1913,11 +1913,23 @@ static void get_cpustats(
 		ptr++;
 		tmp = info.comm;
 		while ((*ptr != '\0') && (*ptr !=')') &&
-		       ((size_t)(tmp - info.comm) < sizeof(info.comm)))
+		       ((size_t)(tmp - info.comm) < sizeof(info.comm))) {
 			*tmp++ = *ptr++;
+		}
 		if (UNLIKELY(*ptr != ')'))
 			continue;
 		*tmp = '\0';
+
+		/*
+		 *  a process may mess with the comm field and name itself
+		 *  with multiple ) and spaces, so scan past all these to get to the
+		 *  next legtimate field
+		 */
+		for (tmp = ptr; *tmp; tmp++) {
+			if (*tmp == ')')
+				ptr = tmp;
+		}
+
 		ptr++;
 		if (UNLIKELY(*ptr != ' '))
 			continue;
