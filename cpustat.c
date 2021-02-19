@@ -1090,7 +1090,7 @@ static void info_banner_dump(
 	sz -= i;
 	(void)strncpy(ptr, "PID S  CPU    Time Task", sz);
 	ptr += 23;
-	sz -= 23;
+	/* sz -= 23; keep Coverity happy */
 
 	if (UNLIKELY(opt_flags & OPT_TIMESTAMP)) {
 		struct tm tm;
