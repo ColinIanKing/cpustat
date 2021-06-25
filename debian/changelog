@@ -1,3 +1,11 @@
+cpustat (0.02.15-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * snapcraft: add build architectures
+  * Set endptr to null to clear up pedantic static analysis
+
+ -- Colin King <colin.king@canonical.com>  Fri, 25 Jun 2021 13:22:12 +0100
+
 cpustat (0.02.14-1) unstable; urgency=medium
 
   * Makefile: bump version
