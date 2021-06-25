@@ -1901,6 +1901,7 @@ static void get_cpustats(
 		 *  is far faster to parse the data via a more tedious means
 		 *  of scanning down the buffer manually..
 		 */
+		endptr = NULL;	/* Keep static analyzers happy */
 		info.pid = (pid_t)strtouint32(ptr, &endptr);
 		if (endptr == ptr)
 			continue;
