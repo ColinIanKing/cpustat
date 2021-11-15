@@ -1,4 +1,4 @@
-cpustat
+# cpustat
 
 cpustat periodically dumps out the current CPU utilisation statistics of
 running processes. cpustat has been optimised to have a minimal CPU overhead
@@ -6,29 +6,28 @@ and typically uses about 35% of the CPU compared to top. cpustat also includes
 some simple statistical analysis options that can help characterise the way
 CPUs are being loaded.
 
-cpustat command line options:
+# cpustat command line options:
 
-    -h help
-    -a calculate CPU utilisation based on all the CPU ticks rather than one CPU
-    -c get command name from processes comm field (less expensive on CPU)
-    -d strip directory basename off command information
-    -D show distribution of CPU utilisation stats at end of run
-    -g show grand total of CPU utilisation stats at end of run
-    -i ignore cpustat in the statistics
-    -l show long (full) command information
-    -n specifies number of tasks to display
-    -q run quietly, useful with option -r
-    -r specifies a comma separated values output file to dump samples into.
-    -s show short command information
-    -S timestamped output
-    -t specifies an task tick count threshold where samples less than this
-       are ignored.
-    -T show total CPU utilisation statistics
-    -x show extra stats (load average, avg cpu freq, etc) 
+* -h help
+* -a calculate CPU utilisation based on all the CPU ticks rather than one CPU
+* -c get command name from processes comm field (less expensive on CPU)
+* -d strip directory basename off command information
+* -D show distribution of CPU utilisation stats at end of run
+* -g show grand total of CPU utilisation stats at end of run
+* -i ignore cpustat in the statistics
+* -l show long (full) command information
+* -n specifies number of tasks to display
+* -q run quietly, useful with option -r
+* -r specifies a comma separated values output file to dump samples into.
+* -s show short command information
+* -S timestamped output
+* -t specifies an task tick count threshold where samples less than this
+     are ignored.
+* -T show total CPU utilisation statistics
+* -x show extra stats (load average, avg cpu freq, etc) 
 
-
-Example Output:
-
+# Example Output:
+```
 cpustat 5 5 -gxDST
 Load Avg 1.71 1.11 0.88, Freq Avg. 2.92 GHz, 4 CPUs online
 7248.5 Ctxt/s, 2444.1 IRQ/s, 1658.1 softIRQ/s, 1.2 new tasks/s, 9 running, 0 blocked
@@ -188,6 +187,4 @@ Distribution of CPU utilisation (per CPU):
     1  73.17   0.36
     2  77.65   1.68
     3  11.00   3.00
-
-(C) Colin King,  colin.king@canonical.com
-Fri Aug 14 2015
+```
