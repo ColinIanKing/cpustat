@@ -1,3 +1,17 @@
+cpustat (0.02.16-1) unstable; urgency=medium
+
+  * Makefile, rename email address, add copyright, bump version
+  * cpustat.c: Update copyright and email address
+  * Makefile: rename README to README.md in make dist rule
+  * REAME.md: Add markdown
+  * Rename README to README.md
+  * manual: update date, author email and copyright
+  * debian/copyright: Update copyright and git URL
+  * debian/control: update author email address and project URL
+  * snap: update to core20
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Mon, 15 Nov 2021 19:17:15 +0000
+
 cpustat (0.02.15-1) unstable; urgency=medium
 
   * Makefile: bump version
