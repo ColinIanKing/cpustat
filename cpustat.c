@@ -2456,7 +2456,8 @@ retry:
 		samples++;
 
 		df.df_refresh();
-		df.df_linebreak();
+		if (!(opt_flags & OPT_QUIET))
+			df.df_linebreak();
 	}
 
 	df.df_endwin();
