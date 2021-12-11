@@ -1,3 +1,11 @@
+cpustat (0.02.17-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * debian/control: update to standards version 4.6.0
+  * Don't emit newline in quiet mode, e.g.  cpustat  -Dqg  1 10
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Sat, 11 Dec 2021 09:02:12 +0100
+
 cpustat (0.02.16-1) unstable; urgency=medium
 
   * Makefile, rename email address, add copyright, bump version
