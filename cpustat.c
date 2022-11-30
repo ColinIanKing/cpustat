@@ -839,7 +839,7 @@ static char *get_pid_cmdline(const pid_t pid)
 	char *ptr;
 	int fd;
 	ssize_t ret;
-	pid_info_t *info;
+	pid_info_t *info = NULL;
 	int h = pid % PID_HASH_SIZE;
 	char path[PATH_MAX];
 	struct stat statbuf;
