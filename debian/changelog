@@ -1,3 +1,14 @@
+cpustat (0.02.18-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * Debian/control: update standards version to 4.6.1
+  * Update copyright year
+  * Manual: Fix spelling mistake "paricular" -> "particular"
+  * Fix spelling mistake: threashold -> threashold
+  * cpustat: ensure pointer info is NULL
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 30 Nov 2022 15:10:11 +0000
+
 cpustat (0.02.17-1) unstable; urgency=medium
 
   * Makefile: bump version
