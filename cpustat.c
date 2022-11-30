@@ -180,7 +180,7 @@ typedef struct pid_info {
 } pid_info_t;
 
 typedef struct {
-	double		threshold;	/* scaling threashold */
+	double		threshold;	/* scaling threshold */
 	double		scale;		/* scaling value */
 	char 		*suffix;	/* Human Hz scale factor */
 } cpu_freq_scale_t;
