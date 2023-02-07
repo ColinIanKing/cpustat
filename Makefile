@@ -19,7 +19,7 @@
 # Author: Colin Ian King <colin.i.king@gmail.com>
 #
 
-VERSION=0.02.18
+VERSION=0.02.19
 
 CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"' -O2
 
