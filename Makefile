@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2011-2021 Canonical
-# Copyright (C) 2021-2023 Colin Ian King
+# Copyright (C) 2021-2024 Colin Ian King
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@
 
 VERSION=0.02.19
 
-CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"' -O2
+CFLAGS += -Wall -Wextra -DVERSION='"$(VERSION)"' -O2 -g
 
 #
 # Pedantic flags
