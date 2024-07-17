@@ -1,3 +1,11 @@
+cpustat (0.02.21-1) unstable; urgency=medium
+
+  * Makefile: bump version
+  * debian/control: update Standards-Version to 4.7.0
+  * cpustat: cater for incorrect ordering of cpus being parsed, fix potential overflow
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 17 Jul 2024 14:58:23 +0100
+
 cpustat (0.02.20-1) unstable; urgency=medium
 
   * Makefile: bump version
