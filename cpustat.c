@@ -2082,9 +2082,11 @@ static char *cpus_online(void)
 			ptr++;
 
 			n2 = strtouint32(ptr, &ptr);
-			range = 1 + n2 - n1;
-			if (range > 0)
-				cpus += range;
+			if (n2 >= n1) {
+				range = n2 - n1;
+				if (range >= 0)
+					cpus += range + 1;
+			}
 			n1 = -1;
 			ch = *ptr;
 			/* next char must be EOS or , */
