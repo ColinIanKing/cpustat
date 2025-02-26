@@ -713,9 +713,12 @@ do_overflow:
  */
 static inline uint64_t OPTIMIZE3 HOT get_ticks(void)
 {
+	long cpus_online = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (cpus_online < 0)
+		cpus_online = 1;	/* assume 1 */
 	return (opt_flags & OPT_TICKS_ALL) ?
-		clock_ticks * (uint64_t)sysconf(_SC_NPROCESSORS_ONLN) :
-		clock_ticks;
+		(clock_ticks * (uint64_t)cpus_online) : clock_ticks;
 }
 
 /*
