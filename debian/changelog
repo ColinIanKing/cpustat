@@ -1,3 +1,12 @@
+cpustat (0.03.00-1) unstable; urgency=medium
+
+  * Makefile: bump version to 0.03.00
+  * debian/control: update Standards-Version to 4.7.1.1
+  * cpustat: handle negative return from sysconf(_SC_NPROCESSORS_ONLN)
+  * Update copyright year
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 26 Feb 2025 12:45:11 +0000
+
 cpustat (0.02.21-1) unstable; urgency=medium
 
   * Makefile: bump version
